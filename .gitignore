@@ -10,3 +10,6 @@ Thumbs.db
 
 # 作業用
 tmp/
+
+# go test -coverprofile の出力（SonarQube の解析用）
+coverage.out

@@ -13,7 +13,7 @@ export default defineConfig({
       // SonarQube Cloud が読む lcov と、手元で見る text
       reporter: ['lcov', 'text-summary'],
       reportsDirectory: 'coverage',
-      include: ['app/**', 'features/**', 'shared/**', 'widgets/**'],
+      include: ['{app,features,shared,widgets}/**/*.{ts,tsx}'],
       exclude: ['**/*.test.{ts,tsx}', 'generate/**'],
     },
   },
