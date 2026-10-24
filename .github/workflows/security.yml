@@ -65,7 +65,10 @@ jobs:
           persist-credentials: false
       - uses: zizmorcore/zizmor-action@53290badfa369cb0bf7ad16342cb62c2fa47ac7b # v0.8.0
         with:
-          version: 1.31.1
+          # zizmor 本体の版は action の版で決まる（action 内のハッシュ付きロックファイル）。action の更新に追従させる
           # 結果は Code scanning ではなく、PR の注釈とログに出す（security-events の書き込み権限を要らなくする）
           advanced-security: "false"
           annotations: "true"
+          # 外部への問い合わせ（固定したアクションの既知の脆弱性など）は、push と毎日の実行だけで行う。
+          # PR のジョブは必須チェックなので、ワークフローを変えたときにしか落ちないようにする
+          online-audits: ${{ github.event_name != 'pull_request' }}

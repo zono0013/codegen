@@ -60,7 +60,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
-      # ベースイメージ（golang / alpine）の更新で壊れても気づけるように、ビルドだけする（push はしない）
+      # ベースイメージ（golang / alpine）の更新でビルドが壊れたら気づけるように、ビルドだけする（push しない。起動は DB が要るので見ない）
       - run: docker build --pull -t example-server:ci example/server
 
   example-front:
