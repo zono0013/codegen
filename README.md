@@ -112,6 +112,10 @@ cd ../front && pnpm install && pnpm dev            # 別ターミナルで FE（
 | [`example/front/CLAUDE.md`](example/front/CLAUDE.md) | FE の前提・規約（同上） |
 | [`example/front/docs/`](example/front/docs/) | FSD 構成 / コーディング規約 / デザイントークン / テスト方針（同上） |
 
+## コントリビューション
+
+Issue や Pull Request を歓迎します。[`CONTRIBUTING.md`](CONTRIBUTING.md) を読んでください。脆弱性は [`SECURITY.md`](SECURITY.md) の手順で非公開に報告してください。
+
 ## ライセンス
 
 [MIT](LICENSE)

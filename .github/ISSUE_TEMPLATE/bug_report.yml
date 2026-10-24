@@ -1,0 +1,46 @@
+name: 不具合の報告
+description: ジェネレータ・生成されるコード・example の不具合
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: 脆弱性は、この Issue ではなく Security タブから非公開で報告してください（SECURITY.md）。
+  - type: dropdown
+    id: area
+    attributes:
+      label: どこの不具合か
+      options:
+        - ジェネレータ（make proto-gen / proto-check / codegen-init）
+        - 生成される Go のコード（server）
+        - 生成される TypeScript のコード（front）
+        - 生成される OpenAPI
+        - マイグレーション（migration-gen）
+        - example（サンプルアプリ）
+        - ドキュメント
+        - その他
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: 何が起きたか / 何が起きるはずだったか
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 再現の手順
+      description: proto や codegen.yaml の最小の例、実行したコマンド、エラーの出力があると助かります
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: codegen の版（コミット）
+      description: Submodule なら `git -C codegen rev-parse --short HEAD`
+  - type: input
+    id: env
+    attributes:
+      label: 環境
+      description: OS、`go version`、Node.js / pnpm の版など

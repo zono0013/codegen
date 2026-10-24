@@ -1,0 +1,23 @@
+name: 機能の提案
+description: 新しいアノテーション・生成物・オプションなどの提案
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 困っていること
+      description: 今のジェネレータで何ができず、何に困っているか
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 提案
+      description: どう変えたいか。proto の書き方や、生成されてほしいコードの例があると助かります
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 他の方法
+      description: 手書きで済ませる方法や、他に考えた案
