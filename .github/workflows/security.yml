@@ -1,0 +1,74 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # PR が無くても新しく見つかった脆弱性に気づけるように毎日走らせる（毎朝 9 時 JST）
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# アクションは、タグではなくコミットハッシュで指定する（更新は Renovate）。
+jobs:
+  govulncheck:
+    name: Go の脆弱性（govulncheck）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            example/server/go.sum
+      # govulncheck は go.mod の tool ディレクティブで版を管理する。実際に呼んでいる箇所の脆弱性だけで失敗する
+      - name: ジェネレータ
+        run: go tool govulncheck ./...
+      - name: example/server
+        run: go tool govulncheck -C example/server ./...
+
+  npm-audit:
+    name: npm の脆弱性（pnpm audit、high 以上）
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: example/front
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        with:
+          package_json_file: example/front/package.json
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: example/front/.nvmrc
+      # lockfile を読むだけなので install は要らない。low / moderate は報告だけで、high 以上で失敗する
+      - run: pnpm audit --audit-level=high
+
+  zizmor:
+    name: ワークフローの静的解析（zizmor）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: zizmorcore/zizmor-action@53290badfa369cb0bf7ad16342cb62c2fa47ac7b # v0.8.0
+        with:
+          # zizmor 本体の版は action の版で決まる（action 内のハッシュ付きロックファイル）。action の更新に追従させる
+          # 結果は Code scanning ではなく、PR の注釈とログに出す（security-events の書き込み権限を要らなくする）
+          advanced-security: "false"
+          annotations: "true"
+          # 外部への問い合わせ（固定したアクションの既知の脆弱性など）は、push と毎日の実行だけで行う。
+          # PR のジョブは必須チェックなので、ワークフローを変えたときにしか落ちないようにする
+          online-audits: ${{ github.event_name != 'pull_request' }}

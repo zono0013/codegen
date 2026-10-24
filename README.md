@@ -88,7 +88,7 @@ codegen/
 │   ├── server/             # Go (DDD + クリーンアーキテクチャ + REST)
 │   ├── front/              # Next.js App Router (FSD)
 │   └── docs/openapi/
-├── .github/workflows/      # CI（ジェネレータ / example / Submodule としての E2E）
+├── .github/workflows/      # CI（ジェネレータ / example / Docker イメージ / Submodule としての E2E）と Security（govulncheck / pnpm audit / zizmor。毎日も実行）
 └── Makefile
 ```
 
