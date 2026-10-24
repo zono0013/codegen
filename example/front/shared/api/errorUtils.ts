@@ -4,7 +4,7 @@ export interface FieldError {
   meta?: Record<string, unknown>
 }
 
-// RFC 7807 Problem Details for HTTP APIs (BE: codegen が生成する pkg/util/errs/http.gen.go)
+// RFC 9457 Problem Details for HTTP APIs (BE: codegen が生成する pkg/util/errs/http.gen.go)
 export interface Problem {
   type: string
   title: string
@@ -12,6 +12,27 @@ export interface Problem {
   detail?: string
   instance?: string
   errors?: FieldError[]
+}
+
+// apiClient が失敗時に reject するエラー。Problem の項目をそのまま持つので、isProblem でも扱える
+export class ApiError extends Error implements Problem {
+  readonly type: string
+  readonly title: string
+  readonly status: number
+  readonly detail?: string
+  readonly instance?: string
+  readonly errors?: FieldError[]
+
+  constructor(problem: Problem, options?: { cause?: unknown }) {
+    super(problem.detail ?? problem.title, options)
+    this.name = 'ApiError'
+    this.type = problem.type
+    this.title = problem.title
+    this.status = problem.status
+    this.detail = problem.detail
+    this.instance = problem.instance
+    this.errors = problem.errors
+  }
 }
 
 export function isProblem(error: unknown): error is Problem {

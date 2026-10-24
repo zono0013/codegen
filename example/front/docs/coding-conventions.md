@@ -28,7 +28,7 @@ toast.dismiss(id)
 
 ## API エラーハンドリング
 
-BE は RFC 7807 Problem Details 形式でエラーを返す。`shared/api/errorUtils` を使って型安全に扱う。
+BE は RFC 9457 Problem Details 形式でエラーを返す。`apiClient` は失敗すると `ApiError`（`Error` を継承し、Problem Details の項目を持つ）で reject する。`shared/api/errorUtils` を使って型安全に扱う。
 
 ```ts
 import { getErrorMessage, isProblem } from '@/shared/api/errorUtils'
@@ -78,7 +78,7 @@ import type { User, CreateUserRequest } from '@/generate/schemas/user.gen'
 - `useState` / `useEffect` などの React hooks
 - ブラウザ API（`localStorage`、`window` など）
 - イベントハンドラを直接持つコンポーネント
-- `apiClient`（axios インスタンス）を呼ぶコード — トークン管理がクライアント専用のため
+- `apiClient`（axios インスタンス）を呼ぶコード — API の呼び出しは TanStack Query の hook（クライアント側）から行う方針のため
 
 feature の model hook はすべてクライアント専用になるため、hook ファイルの先頭に `'use client'` を付ける。
 
@@ -125,3 +125,13 @@ const after = id !== '' ? id : undefined
 既存コンポーネントを優先する。カスタム実装の前に `pnpm dlx shadcn@latest search` で探す。
 
 詳細は [shadcn/ui のドキュメント](https://ui.shadcn.com/docs) を参照。
+
+---
+
+## 認証を入れるとき
+
+`shared/api/apiClient.ts` は認証を持たない（サンプルの API に認証が無いため）。入れるときは、`ApiClient` のコンストラクタで axios のインターセプターを足す。
+
+- リクエスト: `this.axiosInstance.interceptors.request.use(...)` でトークンを `Authorization` ヘッダーに付ける
+- レスポンス: 401 のときのトークンの更新やログイン画面への移動は、既存のエラー変換（`toApiError`）より前に置く
+- トークンはメモリか HttpOnly Cookie に置き、`localStorage` には置かない（XSS で読まれるため）

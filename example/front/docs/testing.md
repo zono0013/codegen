@@ -86,17 +86,21 @@ describe('UpdateUserForm', () => {
 | `next/navigation` の router | `vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))` |
 | shadcn コンポーネント | **モックしない**（実コンポーネントを使う） |
 
-## RFC 7807 エラーのテスト
+## RFC 9457（Problem Details）エラーのテスト
 
-`getErrorMessage` は `shared/api/errorUtils` に実装されているので、hook テストでは API が投げる例外の形式でモックする:
+`apiClient` は失敗すると `ApiError`（`Error` を継承し、Problem Details の項目を持つ）で reject する。hook テストでは同じ形でモックする:
 
 ```ts
-// Problem Details 形式のエラー
-vi.mocked(createUser).mockRejectedValue({
-  detail: 'このメールアドレスは既に使用されています',
-  title: 'Conflict',
-  status: 409,
-})
+import { ApiError } from '@/shared/api/errorUtils'
+
+vi.mocked(createUser).mockRejectedValue(
+  new ApiError({
+    type: 'about:blank',
+    title: 'Conflict',
+    status: 409,
+    detail: 'このメールアドレスは既に使用されています',
+  })
+)
 
 // hook 側で getErrorMessage(e) → 'このメールアドレスは既に使用されています' になる
 expect(result.current.error).toBe('このメールアドレスは既に使用されています')
