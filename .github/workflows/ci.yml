@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
 
+# アクションはタグではなくコミットハッシュで固定する（タグは付け替えられるため）。更新は Renovate が行う。
 permissions:
   contents: read
 
@@ -18,8 +19,10 @@ jobs:
     name: codegen（ジェネレータのテストと example/ の生成物の検査）
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: go.mod
       - run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
@@ -35,8 +38,10 @@ jobs:
       run:
         working-directory: example/server
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: example/server/go.mod
           cache-dependency-path: example/server/go.sum
@@ -53,11 +58,13 @@ jobs:
       run:
         working-directory: example/front
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
         with:
           package_json_file: example/front/package.json
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: example/front/.nvmrc
           cache: pnpm
@@ -72,19 +79,20 @@ jobs:
     name: Submodule として取り込んで使えるか
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           path: codegen-src
-      - uses: actions/setup-go@v5
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: codegen-src/go.mod
           cache-dependency-path: |
             codegen-src/go.sum
             codegen-src/example/server/go.sum
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
         with:
           package_json_file: codegen-src/example/front/package.json
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: codegen-src/example/front/.nvmrc
           cache: pnpm
