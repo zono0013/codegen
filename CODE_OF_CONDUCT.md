@@ -24,6 +24,10 @@
 
 ## 報告
 
-許されない振る舞いを見かけたり受けたりしたときは、メンテナー（[@zono0013](https://github.com/zono0013)）に連絡してください。公開の場に書きにくい内容は、GitHub のプロフィールにある連絡先から非公開で連絡してください。報告者のプライバシーは守ります。
+許されない振る舞いを見かけたり受けたりしたときは、メンテナー（[@zono0013](https://github.com/zono0013)）に連絡してください。公開の場に書きにくい内容は、X（旧 Twitter）の [@zonozono0013](https://x.com/zonozono0013) にダイレクトメッセージで非公開に連絡してください。報告者のプライバシーは守ります。
 
 メンテナーは、この規範に反する振る舞いに対して、コメントやコードの削除、警告、一時的または恒久的な参加の禁止などの対応をとることがあります。
+
+## 帰属
+
+この文書は [Contributor Covenant](https://www.contributor-covenant.org/) 2.1（[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.ja)）を元に、要点をまとめたものです。正式な内容は[全文](https://www.contributor-covenant.org/ja/version/2/1/code_of_conduct/)を参照してください。

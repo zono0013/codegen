@@ -18,18 +18,17 @@ Issue や Pull Request を歓迎します。このファイルは、変更を出
 
 ```bash
 git clone https://github.com/zono0013/codegen.git && cd codegen
-make test          # ジェネレータのテスト（example/ の生成物が最新かも含む）
+make test          # ジェネレータのテスト（example/ の生成物が最新か）と、example/server の vet / test
 make proto-check   # 生成物が proto・ジェネレータと一致しているか
-cd example/front && pnpm install && pnpm test --run
+cd example/front && pnpm install && pnpm typecheck && pnpm lint && pnpm test --run
 ```
 
 ## 変更の進め方
 
 1. **Issue を立てる**（小さな修正なら省略してよい）。何を・なぜ変えるかを書く
 2. **ブランチを切る**: `feat/<Issue番号>-<topic>` / `fix/<Issue番号>-<topic>` など（例: `fix/22-unique-constraint-name`）
-3. **テストを先に書く**: 振る舞いを変えるときは、テストを先に書いて落ちることを確かめてから実装する（[`docs/spec.md` のテスト方針](docs/spec.md#テスト方針)）
-4. **生成物を作り直す**: ジェネレータやテンプレート、`example/proto` を変えたら `make proto-gen` を実行し、生成物（`*.gen.*`）の差分もコミットする。生成物は手で編集しない
-5. **Pull Request を出す**: テンプレートに沿って、Summary / Changes / Test plan / Risk を書く
+3. **テストを先に書き、生成物を作り直す**: 振る舞いを変えるときは、テストを先に書いて落ちることを確かめてから実装する。ジェネレータやテンプレート、`example/proto` を変えたら `make proto-gen` で生成物（`*.gen.*`）も更新してコミットする。生成物は手で編集しない。手順は [`docs/spec.md` のテスト方針](docs/spec.md#テスト方針)
+4. **Pull Request を出す**: テンプレートに沿って、Summary / Changes / Test plan / Risk を書く
 
 ## コミットと Pull Request
 

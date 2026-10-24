@@ -19,5 +19,5 @@
 ## このリポジトリでの対策
 
 - 依存の脆弱性: Renovate による更新と、CI での `govulncheck` / `pnpm audit`（毎日も実行）
-- GitHub Actions: アクションとコンテナイメージをハッシュで固定し、zizmor でワークフローを検査
+- GitHub Actions: アクションをコミットハッシュで固定し（更新は Renovate）、zizmor でワークフローを検査
 - コード: SonarQube Cloud による静的解析

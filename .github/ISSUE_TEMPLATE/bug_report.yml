@@ -30,10 +30,15 @@ body:
     id: reproduce
     attributes:
       label: 再現の手順
-      description: proto や codegen.yaml の最小の例、実行したコマンド、エラーの出力があると助かります
-      render: shell
+      description: 実行したコマンドと、proto や codegen.yaml の最小の例（Markdown のコードブロックで書けます）
     validations:
       required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: エラーの出力
+      description: コマンドの出力やスタックトレース（そのまま貼り付けてください）
+      render: shell
   - type: input
     id: version
     attributes:
