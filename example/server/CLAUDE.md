@@ -61,7 +61,7 @@ Go + DDD + クリーンアーキテクチャ + REST のバックエンドプロ�
 server/
 ├── cmd/
 │   ├── api/                    # エントリポイント(ワイヤリング + net/http)
-│   └── migration-gen/      # *.gen.go(entity → Postgres up SQL の独自ジェネレータ、codegen が生成)
+│   └── migration-gen/          # *.gen.go(entity → Postgres up SQL の独自ジェネレータ、codegen が生成)
 ├── internal/
 │   ├── domain/
 │   │   ├── entity/             # *.gen.go(生成、GORM タグ + TableName 内蔵)
