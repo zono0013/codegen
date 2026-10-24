@@ -78,7 +78,7 @@ import type { User, CreateUserRequest } from '@/generate/schemas/user.gen'
 - `useState` / `useEffect` などの React hooks
 - ブラウザ API（`localStorage`、`window` など）
 - イベントハンドラを直接持つコンポーネント
-- `apiClient`（axios を包んだクライアント）を呼ぶコード — API の呼び出しは TanStack Query の hook（クライアント側）から行う方針のため
+- `apiClient`（axios を包んだクライアント）を呼ぶコード — API の呼び出しは TanStack Query の hook（クライアント側）から行う方針のため。`apiClient` は同一オリジンの相対パス（`/api/*`）に送るので、ブラウザでしか動かない（サーバー側から呼ぶならバックエンドの URL を直接使う）
 
 feature の model hook はすべてクライアント専用になるため、hook ファイルの先頭に `'use client'` を付ける。
 
@@ -135,4 +135,4 @@ const after = id !== '' ? id : undefined
 - リクエスト: `this.axiosInstance.interceptors.request.use(...)` でトークンを `Authorization` ヘッダーに付ける
 - レスポンス: 401 のときのトークンの更新やログイン画面への移動は、コンストラクタの中で既存の `interceptors.response.use(...)`（`toApiError` で ApiError に変える）より**先に**登録する。axios のレスポンスのインターセプターは登録した順に動くので、後から足すと AxiosError ではなく ApiError を受け取り、`error.config` を使ったリトライが書けない
 - トークンはメモリか HttpOnly Cookie に置き、`localStorage` には置かない（XSS で読まれるため）
-- Cookie を使うなら、`axios.create` に `withCredentials: true` を足し、サーバーの CORS で `Access-Control-Allow-Credentials: true` と、`*` ではない具体的なオリジンを返す。どちらかが欠けると Cookie が送られない
+- Cookie を使う場合も、API は同一オリジン（`/api/*` を Next.js がバックエンドに転送する）なので、`withCredentials` やバックエンドの CORS の設定は要らない。Cookie は HttpOnly / Secure / SameSite を付けて発行する
