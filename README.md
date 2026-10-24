@@ -71,7 +71,7 @@ proto を変えると生成物が変わり、それを使う手書き層がコ�
 
 ## スキーマ適用
 
-`AutoMigrate` は **起動時に呼ばない**。`make migration-gen` が entity の gorm タグから差分 SQL を吐き、`golang-migrate` で適用する一本道にしてある（GORM が期待する制約名と生成 SQL の制約名が食い違い、既存スキーマを壊すため）。生成される `AutoMigrate<Entity>` ヘルパーは integration test 用。
+`AutoMigrate` は **起動時に呼ばない**。`make migration-gen` が entity の gorm タグから差分 SQL を吐き、`golang-migrate` で適用する一本道にしてある（GORM と生成する SQL で制約の命名が違い、混ぜると制約の状態が食い違うため）。生成される `AutoMigrate<Entity>` ヘルパーは integration test 用。
 
 ## このリポジトリの構成
 

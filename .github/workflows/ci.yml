@@ -53,6 +53,40 @@ jobs:
       - run: go vet ./...
       - run: go test ./...
 
+  example-server-postgres:
+    name: example/server（Postgres でマイグレーションの SQL を適用）
+    runs-on: ubuntu-latest
+    services:
+      # docker-compose.yml と同じ版。アクションと同じくダイジェストで固定する（更新は Renovate）
+      postgres:
+        image: postgres:16-alpine@sha256:f4610795587492cd4fb887c2dc3de301b813278bb6f616992061141b5f15ac36
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: app
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U app"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: example/server
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: example/server/go.mod
+          cache-dependency-path: example/server/go.sum
+      # migration-gen が生成する SQL を実際に適用する（文字列の比較だけでは、Postgres が受け付けるかは分からない）
+      - run: go test -count=1 -run Postgres -v ./cmd/migration-gen/
+        env:
+          MIGRATION_TEST_DATABASE_URL: postgres://app:app@localhost:5432/app?sslmode=disable
+
   example-server-docker:
     name: example/server（Docker イメージのビルド）
     runs-on: ubuntu-latest

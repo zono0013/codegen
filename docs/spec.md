@@ -53,7 +53,7 @@ Go ツールチェーンだけで動く（buf / protoc は不要）。
 | カラムの追加 | `ALTER TABLE ... ADD COLUMN` |
 | カラムの削除 | `ALTER TABLE ... DROP COLUMN`（WARNING 付き） |
 | 型 / NOT NULL の変更 | `ALTER COLUMN`（WARNING 付き） |
-| unique の追加 / 削除 | `ADD CONSTRAINT "uq_<table>_<column>" UNIQUE` / `DROP CONSTRAINT "uq_<table>_<column>"` |
+| unique の追加 / 削除 | 追加は `ADD CONSTRAINT "uq_<table>_<column>" UNIQUE`（`CREATE TABLE` / `ADD COLUMN` の中でも同じ名前を明示する）。削除は、名前ではなく「その列だけに付いた unique 制約」を `pg_constraint` から探して外す `DO` ブロック。名前を明示する前の既定の名前（`<table>_<column>_key`）や手で付けた名前でも外せる。見つからなければ失敗する（snapshot と DB の食い違いに気づけるように） |
 | 複合インデックスの追加 / 変更 | `CREATE INDEX` / `DROP INDEX` |
 | 主キーの変更 | SQL は出さず、WARNING だけ（手で書く） |
 | entity の削除 | `DROP TABLE`（WARNING 付き） |
@@ -63,8 +63,7 @@ Go ツールチェーンだけで動く（buf / protoc は不要）。
 - **CASCADE と DEFAULT は使わない**。依存があれば DROP は失敗する。`gorm` タグの `default:` は無視する
 - NOT NULL のカラムを後から足すときは 2 段階にする（NULL 許容で追加 → 値を埋める → NOT NULL にする）。危険な操作（NOT NULL の追加、DROP、型の変更、主キーの変更）には `-- WARNING:` を付けるので、確かめてから commit する
 - SQL を手で直したら `.snapshot.json` も合わせる。合わせないと、次の差分で同じ変更がまた出る
-- **既知の制約**: `CREATE TABLE` で作った unique（名前は `<table>_<column>_key`）を後から外すと、生成する `DROP CONSTRAINT "uq_<table>_<column>"` は名前が合わず失敗する。手で名前を直して適用する
-- **起動時に `AutoMigrate` を呼ばない**。生成する `AutoMigrate<Entity>` は integration test 用。GORM が期待する制約名（`uni_<table>_<column>`）と、生成する SQL の制約名（`CREATE TABLE` の中では Postgres 既定の `<table>_<column>_key`、後から足すと `uq_<table>_<column>`）が違うため、適用済みの DB に `AutoMigrate` を走らせると `DROP CONSTRAINT` に失敗する
+- **起動時に `AutoMigrate` を呼ばない**。生成する `AutoMigrate<Entity>` は integration test 用。GORM の制約の命名（`uni_<table>_<column>`）と、生成する SQL の命名（`uq_<table>_<column>`。以前に作ったテーブルは Postgres 既定の `<table>_<column>_key`）が違うため、`AutoMigrate` と生成する SQL を同じ DB に混ぜると、制約の状態が食い違う
 
 ## 設定ファイル（`codegen.yaml`）
 
