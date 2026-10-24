@@ -101,7 +101,7 @@
       "groupSlug": "github-actions"
     },
     {
-      "description": "go.mod の go ディレクティブは既定では更新されない（^1.25.0 の範囲とみなされる）ので、最新のパッチ版まで上げる",
+      "description": "go.mod の go ディレクティブは既定では更新されない（go 1.27.3 は ^1.27.3 の範囲とみなされる）ので、最新のパッチ版まで上げる",
       "matchManagers": [
         "gomod"
       ],
@@ -132,6 +132,20 @@
         "npm"
       ],
       "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "脆弱性の修正（major 以外）は、必須チェック（E2E を含む CI）が通ったら自動マージする。修正版はアドバイザリが名指しする最小のバージョン（vulnerabilityFixStrategy: lowest）なので、公開直後の版を取り込む心配は小さい。major は破壊的変更があり得るので手動",
+      "isVulnerabilityAlert": true,
+      "matchUpdateTypes": [
+        "patch",
+        "minor",
+        "digest",
+        "pin",
+        "pinDigest"
+      ],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
     }
   ]
 }
