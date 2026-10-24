@@ -10,8 +10,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  # PR だけ古い実行を取り消す（main は各コミットの結果を残す）
+  # PR はブランチごとにまとめ、古い実行を取り消す。main への push はコミットごとに別のグループにして、
+  # 続けてマージしても各コミットの結果を残す（同じグループで待機できる実行は 1 つだけで、古い待機は取り消されるため）
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
