@@ -9,7 +9,7 @@ pnpm install
 pnpm dev          # http://localhost:3000
 ```
 
-API（`/api/*`）は Next.js がバックエンドに転送する（`next.config.ts` の `rewrites`）。転送先は `BACKEND_URL`（既定 `http://localhost:8080`、`next build` のときに決まる）。ブラウザから見て同一オリジンなので、バックエンドに CORS の設定は要らない。
+API（`/api/*`）は Next.js がバックエンドに転送する（`next.config.ts` の `rewrites`）。転送先は `BACKEND_URL`（既定 `http://localhost:8080`。`next build` のとき、開発中は `next dev` を起動したときに決まる。`.env.local` に書いてもよい）。転送するのは `/api/*` だけ。バックエンドに届く `Host` はバックエンドのものになり、クライアントの IP は `X-Forwarded-For` では届かない（ログや rate limit で使うときは注意）。ブラウザから見て同一オリジンなので、バックエンドに CORS の設定は要らない。
 
 ## コマンド
 
