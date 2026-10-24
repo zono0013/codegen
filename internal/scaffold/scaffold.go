@@ -110,7 +110,8 @@ func Copy(opts Options) (Result, error) {
 // trackedFiles は dir 配下の Git 管理下のファイルを dir からの相対パス（スラッシュ区切り）で返す。
 // node_modules やビルド成果物、.env.local のような手元だけのファイルをコピーしないため、.gitignore に従う。
 func trackedFiles(dir string) ([]string, error) {
-	out, err := exec.Command("git", "-C", dir, "ls-files", "-z", "--", ".").Output()
+	// git は PATH から探す。開発者が自分の手元で実行する CLI で、PATH は実行する本人のものなので許容する（SonarQube の go:S4036）
+	out, err := exec.Command("git", "-C", dir, "ls-files", "-z", "--", ".").Output() // NOSONAR
 	if err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
