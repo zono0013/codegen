@@ -159,7 +159,7 @@ func uniqueConstraintName(table, column string) string {
 	return fmt.Sprintf("uq_%s_%s", table, column)
 }
 
-// emitDropUnique は table.column だけに付いた unique 制約を、名前ではなく列で探して外す。
+// emitDropUnique は table.column だけに付いた unique 制約を、名前ではなく列で探してすべて外す。
 // 名前は、作った時期（名前を明示する前は Postgres 既定の <table>_<column>_key）、手での変更、
 // 長い名前の切り詰めで変わりうるため。見つからなければ失敗させ、snapshot と DB の食い違いに気づけるようにする。
 func emitDropUnique(b *strings.Builder, table, column string) {
@@ -168,19 +168,23 @@ func emitDropUnique(b *strings.Builder, table, column string) {
 	fmt.Fprintf(b, `DO $$
 DECLARE
   con_name text;
+  dropped int := 0;
 BEGIN
-  SELECT con.conname INTO con_name
-    FROM pg_constraint con
-    JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = con.conkey[1]
-   WHERE con.conrelid = %[1]s::regclass
-     AND con.contype = 'u'
-     AND array_length(con.conkey, 1) = 1
-     AND att.attname = %[2]s
-   LIMIT 1;
-  IF con_name IS NULL THEN
+  FOR con_name IN
+    SELECT con.conname
+      FROM pg_constraint con
+      JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = con.conkey[1]
+     WHERE con.conrelid = %[1]s::regclass
+       AND con.contype = 'u'
+       AND array_length(con.conkey, 1) = 1
+       AND att.attname = %[2]s
+  LOOP
+    EXECUTE format('ALTER TABLE %%s DROP CONSTRAINT %%I', %[1]s::regclass, con_name);
+    dropped := dropped + 1;
+  END LOOP;
+  IF dropped = 0 THEN
     RAISE EXCEPTION 'unique constraint on %%.%% not found', %[1]s, %[2]s;
   END IF;
-  EXECUTE format('ALTER TABLE %%s DROP CONSTRAINT %%I', %[1]s::regclass, con_name);
 END $$;
 `, rel, col)
 }

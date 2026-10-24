@@ -131,11 +131,21 @@ func TestUniqueConstraintLifecycle_Postgres(t *testing.T) {
 		expectUnique(t)
 	})
 
+	t.Run("同じ列に unique が 2 つあれば両方外す", func(t *testing.T) {
+		reset(t)
+		mustExec(t, `CREATE TABLE "users" ("id" text PRIMARY KEY, "email" text NOT NULL UNIQUE)`)
+		mustExec(t, `ALTER TABLE "users" ADD CONSTRAINT "uq_users_email" UNIQUE ("email")`)
+		expectUnique(t, "uq_users_email", "users_email_key")
+		mustExec(t, dropUnique)
+		expectUnique(t)
+	})
+
 	t.Run("外す制約が無ければ失敗する", func(t *testing.T) {
 		reset(t)
 		mustExec(t, `CREATE TABLE "users" ("id" text PRIMARY KEY, "email" text NOT NULL)`)
-		if err := exec(t, dropUnique); err == nil {
-			t.Fatal("unique が無いのに成功した（snapshot と DB の食い違いに気づけない）")
+		err := exec(t, dropUnique)
+		if err == nil || !strings.Contains(err.Error(), "unique constraint on") || !strings.Contains(err.Error(), "not found") {
+			t.Fatalf("err = %v, want 制約が見つからないエラー（snapshot と DB の食い違いに気づけるように）", err)
 		}
 	})
 }
