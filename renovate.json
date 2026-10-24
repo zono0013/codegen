@@ -134,7 +134,7 @@
       "minimumReleaseAge": "3 days"
     },
     {
-      "description": "脆弱性の修正（major 以外）は、必須チェック（E2E を含む CI）が通ったら自動マージする。packageRules の isVulnerabilityAlert は条件ではなく印を付ける設定なので、matchJsonata で絞る（使うと全更新が対象になる）。major は破壊的変更があり得るので手動",
+      "description": "脆弱性の修正（major 以外）は、必須チェック（E2E を含む CI）が通ったら自動マージする。条件は matchJsonata で書く（packageRules に isVulnerabilityAlert: true と書くと、条件ではなく当たった全更新に印を付ける設定になり、全更新が自動マージになる）。major は破壊的変更があり得るので手動",
       "matchJsonata": [
         "isVulnerabilityAlert = true"
       ],
