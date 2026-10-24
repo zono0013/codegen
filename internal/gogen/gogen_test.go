@@ -65,7 +65,7 @@ func TestGenerate_Runtime(t *testing.T) {
 		"pkg/util/errs/http.gen.go",
 		"pkg/util/tx/tx.gen.go",
 		"internal/infra/postgres/errors.gen.go",
-		"cmd/mss-migration-gen/main.gen.go",
+		"cmd/migration-gen/main.gen.go",
 	} {
 		if _, ok := files[name]; !ok {
 			t.Errorf("%s が生成されていない", name)
@@ -76,13 +76,13 @@ func TestGenerate_Runtime(t *testing.T) {
 			t.Errorf("%s: %s が置き換わっていない", name, importPathPlaceholder)
 		}
 	}
-	if src := files["cmd/mss-migration-gen/main.gen.go"]; !strings.Contains(src, `"`+importPath+`/internal/domain/entity"`) {
-		t.Errorf("mss-migration-gen が生成先の entity を import していない:\n%s", src)
+	if src := files["cmd/migration-gen/main.gen.go"]; !strings.Contains(src, `"`+importPath+`/internal/domain/entity"`) {
+		t.Errorf("migration-gen が生成先の entity を import していない:\n%s", src)
 	}
 }
 
 func TestGenerate_NoEntity(t *testing.T) {
-	// mss-migration-gen（常に生成する）が entity.All を参照するので、entity が無くても registry を出す
+	// migration-gen（常に生成する）が entity.All を参照するので、entity が無くても registry を出す
 	files := prototest.Generate(t, map[string]string{"empty/v1/empty.proto": `syntax = "proto3";
 package empty.v1;
 message Ping {}
