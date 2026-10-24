@@ -1,0 +1,88 @@
+{
+  "tables": {
+    "articles": {
+      "name": "articles",
+      "columns": {
+        "author_id": {
+          "name": "author_id",
+          "sql_type": "text",
+          "not_null": true,
+          "primary_key": false
+        },
+        "body": {
+          "name": "body",
+          "sql_type": "text",
+          "not_null": true,
+          "primary_key": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "sql_type": "timestamptz",
+          "not_null": true,
+          "primary_key": false
+        },
+        "id": {
+          "name": "id",
+          "sql_type": "text",
+          "not_null": false,
+          "primary_key": true
+        },
+        "published": {
+          "name": "published",
+          "sql_type": "boolean",
+          "not_null": true,
+          "primary_key": false
+        },
+        "slug": {
+          "name": "slug",
+          "sql_type": "text",
+          "not_null": true,
+          "primary_key": false,
+          "unique": true
+        },
+        "title": {
+          "name": "title",
+          "sql_type": "text",
+          "not_null": true,
+          "primary_key": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "sql_type": "timestamptz",
+          "not_null": true,
+          "primary_key": false
+        }
+      }
+    },
+    "users": {
+      "name": "users",
+      "columns": {
+        "created_at": {
+          "name": "created_at",
+          "sql_type": "timestamptz",
+          "not_null": true,
+          "primary_key": false
+        },
+        "email": {
+          "name": "email",
+          "sql_type": "text",
+          "not_null": true,
+          "primary_key": false,
+          "unique": true
+        },
+        "id": {
+          "name": "id",
+          "sql_type": "text",
+          "not_null": false,
+          "primary_key": true
+        },
+        "name": {
+          "name": "name",
+          "sql_type": "text",
+          "not_null": true,
+          "primary_key": false
+        }
+      }
+    }
+  }
+}

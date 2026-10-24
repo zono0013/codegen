@@ -1,0 +1,144 @@
+package main
+
+import "sort"
+
+// changeKind は 1 テーブルの変更種別。
+type changeKind int
+
+const (
+	changeCreate changeKind = iota // CREATE TABLE
+	changeAlter                    // ADD/DROP/ALTER COLUMN, インデックス追加削除
+	changeDrop                     // DROP TABLE
+)
+
+// tableChange は 1 テーブルに対する未適用の変更セット。
+type tableChange struct {
+	Table string
+	Kind  changeKind
+
+	// CREATE 用
+	NewTable *tableSchema
+
+	// ALTER 用
+	AddColumns     []columnSchema
+	DropColumns    []string // 列名
+	AlterColumns   []columnAlter
+	AddIndexes     []indexSchema
+	DropIndexes    []string // インデックス名
+	AddUniqueCols  []string // 単一カラム unique 制約を後付け追加
+	DropUniqueCols []string // 単一カラム unique 制約を解除
+}
+
+// columnAlter は既存カラムの属性差分。NotNull / Type / Unique 等が変わったときに発行。
+type columnAlter struct {
+	Name string
+	From columnSchema
+	To   columnSchema
+}
+
+func diffSchemas(prev, curr map[string]*tableSchema) []tableChange {
+	out := []tableChange{}
+
+	// 新規 + 変更
+	for name, c := range curr {
+		p, exists := prev[name]
+		if !exists {
+			out = append(out, tableChange{Table: name, Kind: changeCreate, NewTable: c})
+			continue
+		}
+		ch := diffTable(p, c)
+		if ch != nil {
+			out = append(out, *ch)
+		}
+	}
+
+	// 削除
+	for name := range prev {
+		if _, exists := curr[name]; !exists {
+			out = append(out, tableChange{Table: name, Kind: changeDrop})
+		}
+	}
+
+	sort.Slice(out, func(i, j int) bool { return out[i].Table < out[j].Table })
+	return out
+}
+
+func diffTable(prev, curr *tableSchema) *tableChange {
+	ch := &tableChange{Table: curr.Name, Kind: changeAlter}
+
+	// カラム差分
+	for name, col := range curr.Columns {
+		pcol, ok := prev.Columns[name]
+		if !ok {
+			ch.AddColumns = append(ch.AddColumns, col)
+			continue
+		}
+		if !columnEqual(pcol, col) {
+			ch.AlterColumns = append(ch.AlterColumns, columnAlter{Name: name, From: pcol, To: col})
+		}
+		// 単一カラム unique の追加/解除
+		if !pcol.Unique && col.Unique {
+			ch.AddUniqueCols = append(ch.AddUniqueCols, name)
+		}
+		if pcol.Unique && !col.Unique {
+			ch.DropUniqueCols = append(ch.DropUniqueCols, name)
+		}
+	}
+	for name := range prev.Columns {
+		if _, ok := curr.Columns[name]; !ok {
+			ch.DropColumns = append(ch.DropColumns, name)
+		}
+	}
+
+	// インデックス差分
+	for name, idx := range curr.Indexes {
+		pidx, ok := prev.Indexes[name]
+		if !ok {
+			ch.AddIndexes = append(ch.AddIndexes, idx)
+			continue
+		}
+		if !indexEqual(pidx, idx) {
+			// 一旦削除して張り直し
+			ch.DropIndexes = append(ch.DropIndexes, name)
+			ch.AddIndexes = append(ch.AddIndexes, idx)
+		}
+	}
+	for name := range prev.Indexes {
+		if _, ok := curr.Indexes[name]; !ok {
+			ch.DropIndexes = append(ch.DropIndexes, name)
+		}
+	}
+
+	// ソート: 出力 SQL を決定的にする
+	sort.Slice(ch.AddColumns, func(i, j int) bool { return ch.AddColumns[i].Name < ch.AddColumns[j].Name })
+	sort.Strings(ch.DropColumns)
+	sort.Slice(ch.AlterColumns, func(i, j int) bool { return ch.AlterColumns[i].Name < ch.AlterColumns[j].Name })
+	sort.Slice(ch.AddIndexes, func(i, j int) bool { return ch.AddIndexes[i].Name < ch.AddIndexes[j].Name })
+	sort.Strings(ch.DropIndexes)
+	sort.Strings(ch.AddUniqueCols)
+	sort.Strings(ch.DropUniqueCols)
+
+	if len(ch.AddColumns) == 0 && len(ch.DropColumns) == 0 && len(ch.AlterColumns) == 0 &&
+		len(ch.AddIndexes) == 0 && len(ch.DropIndexes) == 0 &&
+		len(ch.AddUniqueCols) == 0 && len(ch.DropUniqueCols) == 0 {
+		return nil
+	}
+	return ch
+}
+
+func columnEqual(a, b columnSchema) bool {
+	// Unique は別ハンドリング (AddUniqueCols / DropUniqueCols) なので等価判定からは外す。
+	return a.SQLType == b.SQLType && a.NotNull == b.NotNull && a.PrimaryKey == b.PrimaryKey
+}
+
+func indexEqual(a, b indexSchema) bool {
+	if a.Unique != b.Unique || len(a.Columns) != len(b.Columns) {
+		return false
+	}
+	for i := range a.Columns {
+		if a.Columns[i] != b.Columns[i] {
+			return false
+		}
+	}
+	return true
+}

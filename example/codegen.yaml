@@ -1,0 +1,12 @@
+# codegen の設定。パスはすべてこのファイルがあるディレクトリからの相対（仕様は ../docs/spec.md）。
+proto: proto
+targets:
+  server:
+    out: server
+  front:
+    out: front/generate
+    client: "@/shared/api/apiClient"   # 生成した API 関数が import する apiClient
+  openapi:
+    out: docs/openapi
+    title: Blog API
+    version: 0.1.0

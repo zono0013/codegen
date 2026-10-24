@@ -1,0 +1,89 @@
+package postgres
+
+import (
+	"errors"
+	"regexp"
+	"strings"
+
+	"github.com/jackc/pgx/v5/pgconn"
+
+	"__IMPORT_PATH__/pkg/util/errs"
+)
+
+// keyColumnsPattern は PostgreSQL の DETAIL フィールドからカラム名を抽出するパターン
+// 例: "Key (col1, col2)=(val1, val2) already exists." → "col1, col2"
+var keyColumnsPattern = regexp.MustCompile(`Key \(([^)]+)\)=`)
+
+// PostgresErrorChecker は errs.DBErrorChecker の PostgreSQL 実装
+type PostgresErrorChecker struct{}
+
+var _ errs.DBErrorChecker = (*PostgresErrorChecker)(nil)
+
+func NewPostgresErrorChecker() errs.DBErrorChecker {
+	return &PostgresErrorChecker{}
+}
+
+func pgErr(err error) *pgconn.PgError {
+	var e *pgconn.PgError
+	if errors.As(err, &e) {
+		return e
+	}
+	return nil
+}
+
+func (p *PostgresErrorChecker) IsUniqueConstraintError(err error) bool {
+	e := pgErr(err)
+	return e != nil && e.Code == "23505"
+}
+
+func (p *PostgresErrorChecker) IsForeignKeyError(err error) bool {
+	e := pgErr(err)
+	return e != nil && e.Code == "23503"
+}
+
+func (p *PostgresErrorChecker) IsNotNullViolationError(err error) bool {
+	e := pgErr(err)
+	return e != nil && e.Code == "23502"
+}
+
+func (p *PostgresErrorChecker) IsCheckViolationError(err error) bool {
+	e := pgErr(err)
+	return e != nil && e.Code == "23514"
+}
+
+func (p *PostgresErrorChecker) IsSerializationFailureError(err error) bool {
+	e := pgErr(err)
+	return e != nil && e.Code == "40001"
+}
+
+func (p *PostgresErrorChecker) IsDeadlockDetectedError(err error) bool {
+	e := pgErr(err)
+	return e != nil && e.Code == "40P01"
+}
+
+func (p *PostgresErrorChecker) ConstraintName(err error) string {
+	if e := pgErr(err); e != nil {
+		return e.ConstraintName
+	}
+	return ""
+}
+
+// ColumnName はエラーに関連するカラム名を返す。
+// NOT NULL違反は pgconn.PgError.ColumnName を、一意制約・FK違反は Detail の "Key (column)=..." から抽出する。
+func (p *PostgresErrorChecker) ColumnName(err error) string {
+	e := pgErr(err)
+	if e == nil {
+		return ""
+	}
+	if e.ColumnName != "" {
+		return e.ColumnName
+	}
+	// 単一: "Key (email)=(foo@example.com) already exists."  → "email"
+	// 複合: "Key (tenant_id, code)=(1, foo) ..."             → "tenant_id"（先頭）
+	// 引用: `Key ("userId")=(123) ...`                       → "userId"
+	if m := keyColumnsPattern.FindStringSubmatch(e.Detail); len(m) >= 2 {
+		first := strings.TrimSpace(strings.Split(m[1], ",")[0])
+		return strings.Trim(first, `"`)
+	}
+	return ""
+}

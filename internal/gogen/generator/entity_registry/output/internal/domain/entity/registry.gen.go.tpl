@@ -1,0 +1,11 @@
+
+package entity
+
+// All はこのパッケージで生成された全 @entity の zero-value ポインタ。
+// mss-migration-gen 等のツールが reflection / gorm.io/gorm/schema で
+// テーブル定義を抽出するのに使う。
+var All = []any{
+{{- range .Entities}}
+	&{{.Name}}{},
+{{- end}}
+}

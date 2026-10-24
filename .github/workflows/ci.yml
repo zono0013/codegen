@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # PR だけ古い実行を取り消す（main は各コミットの結果を残す）
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  codegen:
+    name: codegen（ジェネレータのテストと example/ の生成物の検査）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - run: go mod tidy -diff
+      - run: go vet ./...
+      - run: go test -count=1 ./...
+      - run: make proto-check
+
+  example-server:
+    name: example/server
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: example/server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: example/server/go.mod
+          cache-dependency-path: example/server/go.sum
+      - run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - run: go mod tidy -diff
+      - run: go build ./...
+      - run: go vet ./...
+      - run: go test ./...
+
+  example-front:
+    name: example/front
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: example/front
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: example/front/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: example/front/.nvmrc
+          cache: pnpm
+          cache-dependency-path: example/front/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test --run
+      - run: pnpm build
+
+  submodule-e2e:
+    name: Submodule として取り込んで使えるか
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: codegen-src
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: codegen-src/go.mod
+          cache-dependency-path: |
+            codegen-src/go.sum
+            codegen-src/example/server/go.sum
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: codegen-src/example/front/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: codegen-src/example/front/.nvmrc
+          cache: pnpm
+          cache-dependency-path: codegen-src/example/front/pnpm-lock.yaml
+      - name: 空のリポジトリに codegen を Submodule として追加する
+        run: |
+          git init -b main app
+          cd app
+          git -c protocol.file.allow=always submodule add "$GITHUB_WORKSPACE/codegen-src" codegen
+      - name: codegen-init（初回コピーと生成）
+        working-directory: app
+        run: make -C codegen codegen-init MODULE=example.com/acme/server TITLE="Acme API"
+      - name: 生成物の検査
+        working-directory: app
+        run: make -C codegen proto-check
+      - name: server
+        working-directory: app/server
+        run: |
+          go build ./...
+          go vet ./...
+          go test ./...
+          make proto-gen
+      - name: front
+        working-directory: app/front
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm typecheck
+          pnpm lint
+          pnpm test --run
+          pnpm gen
+      - name: Submodule の中が変わっていないこと（どの手順も codegen/ に書き込まない）
+        working-directory: app
+        run: |
+          git -C codegen status --porcelain
+          test -z "$(git -C codegen status --porcelain)"

@@ -1,0 +1,132 @@
+syntax = "proto3";
+
+package article.v1;
+
+// Article は投稿された記事 1 件。
+//
+// マーカーの意味は docs/patterns/proto-driven-ddd.md を参照:
+//   @entity    Entity / Repository / Mock / Postgres 実装 / DTO を生成
+//   @pk        主キー。SelectByPK / Delete を生成
+//   @paging    cursor pagination の基準列。SelectByCursor を生成
+//   @unique    SelectBySlug のような単一検索を追加生成
+//   @required  ファクトリで trim + 非空バリデーション
+//   @timestamp int64(unix 秒) を time.Time にマップし、末尾の Unix を除去
+//
+// @entity
+message Article {
+  // @pk @paging
+  string id = 1;
+  // URL に使う識別子。記事タイトルから作るのでユーザーが指定する。
+  // @unique @required
+  string slug = 2;
+  // @required
+  string title = 3;
+  // @required
+  string body = 4;
+  // 投稿者。user.v1.User の id を指す（FK 制約は張らない）。
+  // @required
+  string author_id = 5;
+  // 公開済みかどうか。作成直後は false（下書き）。
+  bool published = 6;
+  // @timestamp
+  int64 created_at_unix = 7;
+  // @timestamp
+  int64 updated_at_unix = 8;
+}
+
+message ListArticlesRequest {}
+message ListArticlesResponse {
+  repeated Article articles = 1;
+}
+
+// ListArticlesByCursorRequest は cursor pagination の入力。
+// after_id が空のときは先頭ページ、非空なら指定 id より後のレコードを limit 件返す。
+message ListArticlesByCursorRequest {
+  int32 limit = 1;
+  string after_id = 2;
+}
+message ListArticlesByCursorResponse {
+  repeated Article articles = 1;
+}
+
+message GetArticleRequest {
+  string id = 1;
+}
+message GetArticleResponse {
+  Article article = 1;
+}
+
+message GetArticleBySlugRequest {
+  string slug = 1;
+}
+message GetArticleBySlugResponse {
+  Article article = 1;
+}
+
+message CreateArticleRequest {
+  string slug = 1;
+  string title = 2;
+  string body = 3;
+  string author_id = 4;
+}
+message CreateArticleResponse {
+  Article article = 1;
+}
+
+message UpdateArticleRequest {
+  string id = 1;
+  string slug = 2;
+  string title = 3;
+  string body = 4;
+}
+message UpdateArticleResponse {
+  Article article = 1;
+}
+
+message PublishArticleRequest {
+  string id = 1;
+}
+message PublishArticleResponse {
+  Article article = 1;
+}
+
+message UnpublishArticleRequest {
+  string id = 1;
+}
+message UnpublishArticleResponse {
+  Article article = 1;
+}
+
+message DeleteArticleRequest {
+  string id = 1;
+}
+message DeleteArticleResponse {}
+
+service ArticleService {
+  // @http GET /api/articles
+  rpc ListArticles(ListArticlesRequest) returns (ListArticlesResponse);
+
+  // @http GET /api/articles/cursor
+  rpc ListArticlesByCursor(ListArticlesByCursorRequest) returns (ListArticlesByCursorResponse);
+
+  // @http GET /api/articles/by-slug
+  rpc GetArticleBySlug(GetArticleBySlugRequest) returns (GetArticleBySlugResponse);
+
+  // @http GET /api/articles/{id}
+  rpc GetArticle(GetArticleRequest) returns (GetArticleResponse);
+
+  // @http POST /api/articles
+  rpc CreateArticle(CreateArticleRequest) returns (CreateArticleResponse);
+
+  // @http PATCH /api/articles/{id}
+  rpc UpdateArticle(UpdateArticleRequest) returns (UpdateArticleResponse);
+
+  // @http POST /api/articles/{id}/publish
+  rpc PublishArticle(PublishArticleRequest) returns (PublishArticleResponse);
+
+  // @http POST /api/articles/{id}/unpublish
+  rpc UnpublishArticle(UnpublishArticleRequest) returns (UnpublishArticleResponse);
+
+  // @http DELETE /api/articles/{id}
+  rpc DeleteArticle(DeleteArticleRequest) returns (DeleteArticleResponse);
+}

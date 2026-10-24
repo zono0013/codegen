@@ -1,0 +1,113 @@
+
+package handler
+
+import (
+	"encoding/json"
+	"net/http"
+{{- if .NeedsStrconv}}
+	"strconv"
+{{- end}}
+
+	"{{importPath}}/pkg/util/errs"
+{{- if .HandlerUsesEntity}}
+	"{{importPath}}/internal/domain/entity"
+{{- end}}
+	"{{importPath}}/internal/usecase"
+)
+
+type {{.HandlerTypeName}} struct {
+	usecase   usecase.{{.UsecaseTypeName}}
+	errWriter errs.ErrorWriter
+}
+
+func New{{.HandlerTypeName}}(errWriter errs.ErrorWriter, uc usecase.{{.UsecaseTypeName}}) *{{.HandlerTypeName}} {
+	return &{{.HandlerTypeName}}{errWriter: errWriter, usecase: uc}
+}
+{{define "input" -}}
+usecase.{{.InputTypeName}}{
+{{- range .PathParamFields}}
+		{{.GoName}}: r.PathValue("{{.JsonName}}"),
+{{- end}}
+{{- range .BodyFields}}
+		{{.GoName}}: body.{{.GoName}},
+{{- end}}
+{{- range .QueryFields}}
+		{{.GoName}}: {{if eq .QueryGoType "int32"}}int32(_{{.ParamName}}){{else}}_{{.ParamName}}{{end}},
+{{- end}}
+	}
+{{- end}}
+{{- range .Methods}}
+{{- if .Http}}
+{{- if .BodyFields}}
+
+type {{.Name}}Body struct {
+{{- range .BodyFields}}
+	{{.GoName}} {{.HandlerGoType}} `json:"{{.JsonName}}"`
+{{- end}}
+}
+{{- end}}
+
+// {{.Http.Method}} {{.Http.Path}}
+func (h *{{$.HandlerTypeName}}) {{.Name}}(w http.ResponseWriter, r *http.Request) {
+{{- if .BodyFields}}
+	var body {{.Name}}Body
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		h.errWriter.WriteError(w, r, errs.NewBadRequestError("invalid request body"))
+		return
+	}
+{{- end}}
+{{- if .QueryFields}}
+	_urlq := r.URL.Query()
+{{- range .QueryFields}}
+{{- if eq .QueryGoType "string"}}
+	_{{.ParamName}} := _urlq.Get("{{.JsonName}}")
+{{- else if eq .QueryGoType "int32"}}
+	_{{.ParamName}}, _ := strconv.Atoi(_urlq.Get("{{.JsonName}}"))
+{{- else if eq .QueryGoType "int64"}}
+	_{{.ParamName}}, _ := strconv.ParseInt(_urlq.Get("{{.JsonName}}"), 10, 64)
+{{- else if eq .QueryGoType "bool"}}
+	_{{.ParamName}} := _urlq.Get("{{.JsonName}}") == "true"
+{{- end}}
+{{- end}}
+{{- end}}
+{{- if .ReturnsEntity}}
+	result, err := h.usecase.{{.Name}}(r.Context(), {{template "input" .}})
+	if err != nil {
+		h.errWriter.WriteError(w, r, err)
+		return
+	}
+	if result == nil {
+		h.errWriter.WriteError(w, r, errs.New(errs.ErrorTypeNotFound, "{{.EntityLowerFirst}} not found"))
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader({{.Status}})
+	_ = json.NewEncoder(w).Encode(result)
+{{- else if .ReturnsList}}
+	list, err := h.usecase.{{.Name}}(r.Context(), {{template "input" .}})
+	if err != nil {
+		h.errWriter.WriteError(w, r, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader({{.Status}})
+	_ = json.NewEncoder(w).Encode(list)
+{{- else if .ReturnsOutput}}
+	result, err := h.usecase.{{.Name}}(r.Context(), {{template "input" .}})
+	if err != nil {
+		h.errWriter.WriteError(w, r, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader({{.Status}})
+	_ = json.NewEncoder(w).Encode(result)
+{{- else}}
+	if err := h.usecase.{{.Name}}(r.Context(), {{template "input" .}}); err != nil {
+		h.errWriter.WriteError(w, r, err)
+		return
+	}
+	w.WriteHeader({{.Status}})
+{{- end}}
+}
+{{- end}}
+{{end}}
