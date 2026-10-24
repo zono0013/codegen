@@ -1,0 +1,136 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommitTypeAll(chore)"
+  ],
+  "timezone": "Asia/Tokyo",
+  "schedule": [
+    "* 0-9 * * 1"
+  ],
+  "semanticCommits": "enabled",
+  "labels": [
+    "dependencies"
+  ],
+  "postUpdateOptions": [
+    "gomodTidy"
+  ],
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "labels": [
+      "dependencies",
+      "security"
+    ]
+  },
+  "packageRules": [
+    {
+      "description": "エコシステムごとのラベル",
+      "matchManagers": [
+        "gomod"
+      ],
+      "addLabels": [
+        "go"
+      ]
+    },
+    {
+      "matchManagers": [
+        "npm"
+      ],
+      "addLabels": [
+        "javascript"
+      ]
+    },
+    {
+      "matchManagers": [
+        "dockerfile",
+        "docker-compose"
+      ],
+      "addLabels": [
+        "docker"
+      ]
+    },
+    {
+      "matchManagers": [
+        "github-actions"
+      ],
+      "addLabels": [
+        "github-actions"
+      ]
+    },
+    {
+      "matchManagers": [
+        "nvm"
+      ],
+      "addLabels": [
+        "javascript"
+      ]
+    },
+    {
+      "description": "minor / patch はエコシステムごとに 1 本にまとめる（major は個別の PR）",
+      "matchManagers": [
+        "gomod"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "Go modules（minor / patch）",
+      "groupSlug": "go-modules"
+    },
+    {
+      "matchManagers": [
+        "npm"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "npm（minor / patch）",
+      "groupSlug": "npm"
+    },
+    {
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "GitHub Actions（minor / patch）",
+      "groupSlug": "github-actions"
+    },
+    {
+      "description": "go.mod の go ディレクティブは既定では更新されない（^1.25.0 の範囲とみなされる）ので、最新のパッチ版まで上げる",
+      "matchManagers": [
+        "gomod"
+      ],
+      "matchDepNames": [
+        "go"
+      ],
+      "matchDepTypes": [
+        "golang"
+      ],
+      "rangeStrategy": "bump"
+    },
+    {
+      "description": "Go 本体のバージョン（go.mod の go ディレクティブと Dockerfile の golang イメージ）はそろえて 1 本にする",
+      "matchDatasources": [
+        "golang-version",
+        "docker"
+      ],
+      "matchPackageNames": [
+        "go",
+        "golang"
+      ],
+      "groupName": "Go のバージョン",
+      "groupSlug": "go-version"
+    },
+    {
+      "description": "公開直後の npm パッケージは取り下げや乗っ取りがあり得るので 3 日待つ",
+      "matchManagers": [
+        "npm"
+      ],
+      "minimumReleaseAge": "3 days"
+    }
+  ]
+}
