@@ -37,7 +37,7 @@ my-app/
 | --- | --- | --- |
 | **毎回生成** | `*.gen.*`。`make proto-gen` のたびに書き出す。手で編集しない | Submodule を上げて `make -C codegen proto-gen` すると追従する |
 | **初回コピー** | `codegen-init` が `example/` からコピーしたもの（`main.go`、Service / Usecase 実装、画面、Makefile、Dockerfile など）。その後は使う側のもの | 上書きしない |
-| **参照** | `codegen/` の中をそのまま読むもの（`docs/spec.md`、`docs/patterns/`） | Submodule を上げれば変わる |
+| **参照** | `codegen/` の中をそのまま読むもの（`docs/spec.md`、`docs/architecture.md`） | Submodule を上げれば変わる |
 
 **何が生成されるか**（ファイルごとの役割、アノテーション、REST の振る舞い、OpenAPI の構成、ランタイム）は [`docs/spec.md`](docs/spec.md) にまとめてある（正本）。`example/` の `*.gen.*` が実際の出力例。
 
@@ -81,7 +81,7 @@ codegen/
 ├── internal/               # ジェネレータ本体（Go / TS / OpenAPI）、テンプレート、ランタイムの元
 ├── docs/
 │   ├── spec.md             # 自動生成の仕様（正本）
-│   └── patterns/           # アーキテクチャパターン集
+│   └── architecture.md     # 設計（層の構成・考え方・向き不向き・DB を変えたいとき）
 ├── example/                # サンプルアプリ（記事投稿: Article + User）。codegen-init のコピー元
 │   ├── codegen.yaml
 │   ├── proto/
@@ -107,7 +107,7 @@ cd ../front && pnpm install && pnpm dev            # 別ターミナルで FE（
 | ファイル | 内容 |
 | --- | --- |
 | [`docs/spec.md`](docs/spec.md) | **自動生成の仕様（設定ファイル / コマンド / ランタイム / アノテーション / REST の振る舞い / OpenAPI / テスト方針）** |
-| [`docs/patterns/`](docs/patterns/) | proto 駆動 DDD / ジェネレータ / インフラ差し替え（スタック横断の設計パターン） |
+| [`docs/architecture.md`](docs/architecture.md) | 設計（層の構成・考え方・向き不向き・DB を変えたいとき） |
 | [`example/server/CLAUDE.md`](example/server/CLAUDE.md) | BE の前提・規約（初回コピーされる） |
 | [`example/front/CLAUDE.md`](example/front/CLAUDE.md) | FE の前提・規約（同上） |
 | [`example/front/docs/`](example/front/docs/) | FSD 構成 / コーディング規約 / デザイントークン / テスト方針（同上） |

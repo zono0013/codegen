@@ -3,7 +3,7 @@ type: object
 description: |-
   Article は投稿された記事 1 件。
 
-  マーカーの意味は docs/patterns/proto-driven-ddd.md を参照:
+  マーカーの意味は codegen の docs/spec.md を参照:
 required:
   - id
   - slug

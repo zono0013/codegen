@@ -32,7 +32,7 @@ fmt: ## フォーマット
 tidy: ## go.sum 整理
 	go mod tidy
 
-install-tools: ## migration-gen + migrate をインストール（proto からの生成は codegen の make proto-gen。buf は不要）
+install-tools: ## migration-gen + migrate をインストール（proto からの生成は codegen の make proto-gen）
 	go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@$(MIGRATE_VERSION)
 	go install ./cmd/migration-gen
 
