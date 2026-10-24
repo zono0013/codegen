@@ -88,7 +88,7 @@ describe('useUser', () => {
     expect(getUser).toHaveBeenCalledWith({ id: '2' })
   })
 
-  it('RFC 7807 Problem Details のエラーは detail を表示する', async () => {
+  it('RFC 9457 Problem Details のエラーは detail を表示する', async () => {
     vi.mocked(getUser).mockRejectedValue({
       title: 'Not Found',
       detail: '指定されたユーザーは存在しません',

@@ -78,7 +78,7 @@ import type { User, CreateUserRequest } from '@/generate/schemas/user.gen'
 - `useState` / `useEffect` などの React hooks
 - ブラウザ API（`localStorage`、`window` など）
 - イベントハンドラを直接持つコンポーネント
-- `apiClient`（axios インスタンス）を呼ぶコード — API の呼び出しは TanStack Query の hook（クライアント側）から行う方針のため
+- `apiClient`（axios を包んだクライアント）を呼ぶコード — API の呼び出しは TanStack Query の hook（クライアント側）から行う方針のため
 
 feature の model hook はすべてクライアント専用になるため、hook ファイルの先頭に `'use client'` を付ける。
 
@@ -133,5 +133,6 @@ const after = id !== '' ? id : undefined
 `shared/api/apiClient.ts` は認証を持たない（サンプルの API に認証が無いため）。入れるときは、`ApiClient` のコンストラクタで axios のインターセプターを足す。
 
 - リクエスト: `this.axiosInstance.interceptors.request.use(...)` でトークンを `Authorization` ヘッダーに付ける
-- レスポンス: 401 のときのトークンの更新やログイン画面への移動は、既存のエラー変換（`toApiError`）より前に置く
+- レスポンス: 401 のときのトークンの更新やログイン画面への移動は、コンストラクタの中で既存の `interceptors.response.use(...)`（`toApiError` で ApiError に変える）より**先に**登録する。axios のレスポンスのインターセプターは登録した順に動くので、後から足すと AxiosError ではなく ApiError を受け取り、`error.config` を使ったリトライが書けない
 - トークンはメモリか HttpOnly Cookie に置き、`localStorage` には置かない（XSS で読まれるため）
+- Cookie を使うなら、`axios.create` に `withCredentials: true` を足し、サーバーの CORS で `Access-Control-Allow-Credentials: true` と、`*` ではない具体的なオリジンを返す。どちらかが欠けると Cookie が送られない
