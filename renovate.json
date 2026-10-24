@@ -101,7 +101,7 @@
       "groupSlug": "github-actions"
     },
     {
-      "description": "go.mod の go ディレクティブは既定では更新されない（^1.25.0 の範囲とみなされる）ので、最新のパッチ版まで上げる",
+      "description": "go.mod の go ディレクティブは既定では更新されない（go 1.27.3 は ^1.27.3 の範囲とみなされる）ので、最新のパッチ版まで上げる",
       "matchManagers": [
         "gomod"
       ],
@@ -132,6 +132,22 @@
         "npm"
       ],
       "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "脆弱性の修正（major 以外）は、必須チェック（E2E を含む CI）が通ったら自動マージする。条件は matchJsonata で書く（packageRules に isVulnerabilityAlert: true と書くと、条件ではなく当たった全更新に印を付ける設定になり、全更新が自動マージになる）。major は破壊的変更があり得るので手動",
+      "matchJsonata": [
+        "isVulnerabilityAlert = true"
+      ],
+      "matchUpdateTypes": [
+        "patch",
+        "minor",
+        "digest",
+        "pin",
+        "pinDigest"
+      ],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
     }
   ]
 }
