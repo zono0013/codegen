@@ -17,7 +17,7 @@ Go + DDD + クリーンアーキテクチャ + REST のバックエンドプロ�
 - **テスト方針**: ユニットテストは生成 Mock を使う。結合テストは docker-compose / testcontainers の Postgres に接続
 - **ビルド**: make + go
 
-> 別 DB（MySQL / Redis / MongoDB 等）へ移管する手順は `../../docs/patterns/infra-swap.md` を参照。この CLAUDE.md の「データストア」欄を更新すると、以降のエージェント（Claude Code など）の判断に反映される。
+> 別 DB（MySQL / Redis / MongoDB 等）へ移す方法は `../../docs/architecture.md` の「DB を変えたいとき」を参照。この CLAUDE.md の「データストア」欄を更新すると、以降のエージェント（Claude Code など）の判断に反映される。
 
 ## アーキテクチャ
 
@@ -117,36 +117,11 @@ server/
 
 ## Migration 生成 (`cmd/migration-gen`)
 
-Entity の `gorm:` タグから Postgres 向け **up migration SQL** を自動生成する独自ツール。`make migration-gen` で起動。ツール自体も `make proto-gen` が生成する（`*.gen.go`、手で編集しない）。
+Entity の `gorm:` タグから Postgres 向けの up migration SQL を作る（`make migration-gen`）。ツール自体も codegen が生成する。入力・出力・差分の規則・規約は `../../docs/spec.md` の「マイグレーション」が正本（ここには重複して書かない）。特に守ること:
 
-- **入力**: `internal/domain/entity/registry.gen.go` の `entity.All`(proto 生成物。全 `@entity` 構造体の zero-value ポインタが入る)
-- **状態管理**: `migrations/.snapshot.json`(前回適用した schema を JSON で保持。**git commit する**)
-- **出力**: `migrations/<YYYYMMDDHHMMSS>_<table>.up.sql`(1 entity の差分につき 1 ファイル)
-- **適用**: [`golang-migrate/migrate`](https://github.com/golang-migrate/migrate) を採用想定。`migrate -path migrations -database $DATABASE_URL up`
-- **down は手書き**: 自動生成しない。down が必要な場合は `<同 timestamp>_<table>.down.sql` を手書きする
-
-### 差分判定ルール
-
-| ケース | 出力 |
-|---|---|
-| snapshot が空 / 該当 entity 不在 | `CREATE TABLE` |
-| 既存 entity に新カラム | `ALTER TABLE ... ADD COLUMN` |
-| 既存 entity からカラム消滅 | `ALTER TABLE ... DROP COLUMN` (WARNING コメント付き) |
-| 型 / NOT NULL / unique 変化 | `ALTER COLUMN` / `ADD CONSTRAINT` / `DROP CONSTRAINT` |
-| entity が消滅 | `DROP TABLE` (WARNING コメント付き) |
-
-### 規約
-
-- **CASCADE は使わない**: `DROP TABLE` / `DROP COLUMN` で依存があれば失敗する。FK 参照や view からの依存は手動で剥がしてから適用
-- **DEFAULT は使わない**: gorm タグの `default:` は無視される。NOT NULL カラムを後から追加する場合は **2 段階**(NULL 許容で追加 → 値を埋める → NOT NULL 化)が必要、生成 SQL に WARNING コメントが入る
-- **危険操作のガード**: NOT NULL 追加 / DROP COLUMN / DROP TABLE / 型変更には `-- WARNING:` ヘッダが付与される。確認のうえ手動で確認・必要なら修正してから commit
-- **snapshot とコードの整合性**: `migrations/.snapshot.json` は entity 状態の真実。手動で migration SQL を書いた場合、snapshot を手で同期しないと次回 diff で差分が再出現する
-
-### `AutoMigrate` との使い分け
-
-`internal/infra/repository/*_postgres_repository.gen.go` には `AutoMigrate<Name>(db *gorm.DB)` も生成されているが、**integration test でスキーマを用意するためのヘルパー**。
-
-**`cmd/api/main.go` は環境を問わず `AutoMigrate` を呼ばない。** GORM が期待する制約名（`uni_<table>_<column>`）と `migration-gen` が出す SQL の制約名（Postgres 既定の `<table>_<column>_key`）が食い違うため、migration 適用済みの DB に対して AutoMigrate を走らせると `DROP CONSTRAINT` に失敗して起動できない。スキーマ適用は `make migration-gen` → `make migrate-up` の一本道にする。
+- `migrations/*.up.sql` と `migrations/.snapshot.json` は両方 git commit する。SQL を手で直したら snapshot も合わせる
+- `-- WARNING:` の付いた SQL（NOT NULL の追加、DROP、型の変更）は確かめてから commit する
+- **`cmd/api/main.go` は環境を問わず `AutoMigrate` を呼ばない**（`AutoMigrate<Name>` は integration test 用）
 
 ## 規約上の禁則
 

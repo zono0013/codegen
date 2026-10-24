@@ -2,7 +2,7 @@
 
 Go + DDD + クリーンアーキテクチャ + REST のバックエンド。[codegen](../../README.md) で proto から DDD の各層を生成するプロジェクトのバックエンド。
 
-> アーキテクチャの背景は [`../../docs/patterns/`](../../docs/patterns/README.md)（proto 駆動 DDD / `mss-protoc-gen` / `migration-gen` / インフラ差し替え）を参照。
+> 設計の考え方は [`../../docs/architecture.md`](../../docs/architecture.md)、生成の仕様は [`../../docs/spec.md`](../../docs/spec.md) を参照。
 
 ## セットアップ
 
@@ -182,7 +182,7 @@ User に `phone_number` を追加するケース。
 3. ドライバ依存を入れ替え（`go get gorm.io/driver/mysql` 等）
 4. `make proto-gen` → コンパイルエラー箇所（`cmd/api/main.go` の DI など）を追従
 
-詳細は [`infra-swap.md`](../../docs/patterns/infra-swap.md) を参照。
+詳細は [`architecture.md` の「DB を変えたいとき」](../../docs/architecture.md#db-を変えたいとき) を参照。
 
 ## レイヤー構成 (`*.gen.*` が自動生成、それ以外が手書き)
 
@@ -250,20 +250,4 @@ userRepo := infrarepo.NewPostgresUserRepository()
 
 ## Migration 運用 (`migrations/`)
 
-Entity の `gorm:` タグから `make migration-gen` で **差分 SQL** を生成する独自ツール (`cmd/migration-gen`)。`../../`（codegen）の Go 生成と対をなすバイナリ。
-
-- **ファイル形式**: `migrations/<YYYYMMDDHHMMSS>_<table>.up.sql` (1 entity 1 file、golang-migrate 互換)
-- **状態保持**: `migrations/.snapshot.json` (前回適用した schema を JSON に。**git commit する**)
-- **down は手書き**: 必要なら `<同 timestamp>_<table>.down.sql` を併置
-- **CASCADE / DEFAULT は使わない**: NOT NULL カラムを後から追加する場合は 2 段階(NULL 許容で追加 → 値埋め → NOT NULL 化)が必要、生成 SQL に WARNING コメントが入る
-- **適用**: `golang-migrate` 想定。`migrate -path migrations -database "$DATABASE_URL" up`
-- **`AutoMigrate*` は開発・テスト用**: 本番起動時には呼ばない
-
-詳細は `CLAUDE.md` の「Migration 生成」節を参照。
-
-### 別 DB (MySQL / Redis / MongoDB) へ移管する場合
-
-CLAUDE.md の「データストア」欄と `../../internal/gogen/generator/infra_postgres_repository/` のテンプレートを書き換えて `make proto-gen` で再生成する。ランタイムの DI 切り替えではなく、**テンプレート差し替え + 再生成** が切り替え手段。`migration-gen` も Postgres 前提で書かれているので、別 DB の場合は SQL 出力部（codegen の `internal/gogen/runtime/cmd/migration-gen/sql.go.src`）を該当 dialect に書き換える。テンプレートもランタイムも codegen の中にあるので、codegen に PR を出すかフォークする（使う側で生成物を編集しても次の `make proto-gen` で戻る）。
-
-詳細は:
-- [`../../docs/patterns/infra-swap.md`](../../docs/patterns/infra-swap.md)
+`make migration-gen` で Entity の `gorm:` タグから差分の SQL を作り、`make migrate-up` で適用する。規則は [`../../docs/spec.md` の「マイグレーション」](../../docs/spec.md#マイグレーションmigration-gen) を参照。

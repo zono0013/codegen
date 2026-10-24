@@ -4,7 +4,7 @@ package article.v1;
 
 // Article は投稿された記事 1 件。
 //
-// マーカーの意味は docs/patterns/proto-driven-ddd.md を参照:
+// マーカーの意味は codegen の docs/spec.md を参照:
 //   @entity    Entity / Repository / Mock / Postgres 実装 / DTO を生成
 //   @pk        主キー。SelectByPK / Delete を生成
 //   @paging    cursor pagination の基準列。SelectByCursor を生成

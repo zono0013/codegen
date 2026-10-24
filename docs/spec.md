@@ -32,6 +32,35 @@ Go ツールチェーンだけで動く（buf / protoc は不要）。
   - `post<T>(url, data?)` / `put<T>(url, data?)` / `patch<T>(url, data?)` が `Promise<{ data: T }>` を返す
   - 値は `import { apiClient } from '<client>'` に埋め込むので、引用符・バックスラッシュ・改行は使えない
 
+## マイグレーション（`migration-gen`）
+
+ランタイムとして生成する `cmd/migration-gen` は、Entity の `gorm` タグから Postgres 向けの up migration の SQL を作る。生成先のプロジェクトで `make migration-gen` から使う。
+
+| | |
+| --- | --- |
+| 入力 | `internal/domain/entity/registry.gen.go` の `entity.All`（全 `@entity` の zero-value ポインタ） |
+| 状態 | `migrations/.snapshot.json`（前回の schema。**git commit する**） |
+| 出力 | `migrations/<YYYYMMDDHHMMSS>_<table>.up.sql`（変更のあった entity ごとに 1 ファイル。golang-migrate 互換） |
+| 適用 | `make migrate-up`（golang-migrate） |
+| down | 生成しない。必要なら `<同じ timestamp>_<table>.down.sql` を手で書く |
+
+**差分の判定**
+
+| ケース | 出力 |
+| --- | --- |
+| snapshot に無い entity | `CREATE TABLE` |
+| カラムの追加 | `ALTER TABLE ... ADD COLUMN` |
+| カラムの削除 | `ALTER TABLE ... DROP COLUMN`（WARNING 付き） |
+| 型 / NOT NULL / unique の変更 | `ALTER COLUMN` / `ADD CONSTRAINT` / `DROP CONSTRAINT` |
+| entity の削除 | `DROP TABLE`（WARNING 付き） |
+
+**規約**
+
+- **CASCADE と DEFAULT は使わない**。依存があれば DROP は失敗する。`gorm` タグの `default:` は無視する
+- NOT NULL のカラムを後から足すときは 2 段階にする（NULL 許容で追加 → 値を埋める → NOT NULL にする）。危険な操作（NOT NULL の追加、DROP、型の変更、主キーの変更）には `-- WARNING:` を付けるので、確かめてから commit する
+- SQL を手で直したら `.snapshot.json` も合わせる。合わせないと、次の差分で同じ変更がまた出る
+- **起動時に `AutoMigrate` を呼ばない**。生成する `AutoMigrate<Entity>` は integration test 用。GORM が期待する制約名（`uni_<table>_<column>`）と、生成する SQL の制約名（Postgres 既定の `<table>_<column>_key`）が違うため、適用済みの DB に `AutoMigrate` を走らせると `DROP CONSTRAINT` に失敗する
+
 ## 設定ファイル（`codegen.yaml`）
 
 生成先のプロジェクトのルートに置く（このリポジトリでは `example/codegen.yaml`）。無いと `generate` / `check` / `clean` はエラーになる。
