@@ -8,6 +8,14 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
+    coverage: {
+      provider: 'v8',
+      // SonarQube Cloud が読む lcov と、手元で見る text
+      reporter: ['lcov', 'text-summary'],
+      reportsDirectory: 'coverage',
+      include: ['app/**', 'features/**', 'shared/**', 'widgets/**'],
+      exclude: ['**/*.test.{ts,tsx}', 'generate/**'],
+    },
   },
   resolve: {
     alias: {
