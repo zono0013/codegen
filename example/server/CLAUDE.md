@@ -4,7 +4,7 @@ Go + DDD + クリーンアーキテクチャ + REST のバックエンドプロ�
 
 ## 技術スタック
 
-- **言語**: Go 1.25
+- **言語**: Go 1.27
 - **API スタイル**: REST(JSON over HTTP)。URL は proto の rpc に付けた `@http METHOD /path` アノテーションで宣言する
 - **Proto**: Protocol Buffers。codegen(`../../`)の `make proto-gen`(buf は使わない)でドメイン層〜ハンドラまで生成
 - **コード生成プラグイン**:
