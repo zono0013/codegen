@@ -17,6 +17,9 @@ jobs:
   sonar:
     name: SonarQube Cloud の解析
     runs-on: ubuntu-latest
+    # SONAR_TOKEN は Environment「sonarcloud」のシークレット（リポジトリ全体のシークレットには置かない）。
+    # 承認者やブランチの制限は付けない（PR ごとの解析が止まるため）
+    environment: sonarcloud
     # fork からの PR には SONAR_TOKEN が渡らないので解析しない
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
