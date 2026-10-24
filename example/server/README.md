@@ -170,19 +170,12 @@ User に `phone_number` を追加するケース。
 
 1. `proto/user/v1/user.proto` の `service` ブロックに rpc を追加、`// @http PUT /api/users/{id}` を付ける
 2. `make proto-gen` → `UserUsecase` interface にメソッドが足され、生成 Handler と DI の `Register` に URL が追加される
-3. `pkg/usecase/user_usecase.go` の `UserUsecaseImpl` に新メソッドを実装(interface 要件を満たさないとコンパイルエラー)
+3. `internal/usecase/user_usecase.go` の `UserUsecaseImpl` に新メソッドを実装(interface 要件を満たさないとコンパイルエラー)
 4. 必要に応じて UseCase / Service にメソッド追加
 
 ### PostgreSQL から別 DB（MySQL / Redis / MongoDB）へ移管したい
 
-永続化は PostgreSQL + GORM 単一実装が既定。別 DB への移管は「生成テンプレートと CLAUDE.md の書き換え」で行う。
-
-1. `CLAUDE.md` の「技術スタック > データストア」欄を更新
-2. `../../internal/gogen/generator/infra_postgres_repository/` を `infra_<db>_repository/` にコピーして ORM / ドライバ / 型マッピングを差し替え
-3. ドライバ依存を入れ替え（`go get gorm.io/driver/mysql` 等）
-4. `make proto-gen` → コンパイルエラー箇所（`cmd/api/main.go` の DI など）を追従
-
-詳細は [`architecture.md` の「DB を変えたいとき」](../../docs/architecture.md#db-を変えたいとき) を参照。
+永続化は PostgreSQL + GORM の単一実装。別の DB に移すには codegen のテンプレートとランタイムを差し替える（codegen に PR を出すかフォークする）。差し替える場所は [`architecture.md` の「DB を変えたいとき」](../../docs/architecture.md#db-を変えたいとき) を参照。移した後は、この README と `CLAUDE.md` の「データストア」欄も書き換える。
 
 ## レイヤー構成 (`*.gen.*` が自動生成、それ以外が手書き)
 
@@ -203,7 +196,7 @@ proto/user/v1/user.proto  ← 唯一の手書き source
      │
      └─ make migration-gen (cmd/migration-gen)
          │
-         └→ migrations/<timestamp>_<table>.up.sql            (差分ベース、CASCADE/DEFAULT は使わない)
+         └→ migrations/<timestamp>_<create|alter|drop>_<table>.up.sql  (差分ベース、CASCADE/DEFAULT は使わない)
             migrations/.snapshot.json                        (前回適用 schema、git commit)
 
 REST Handler (生成) ─json.Encode→ DTO (生成)
@@ -222,8 +215,8 @@ HTTP リクエストは生成 Handler が JSON / query を parse → Usecase 実
 Repository の本番実装は proto から生成された **PostgreSQL + GORM 版**(`internal/infra/repository/*_postgres_repository.gen.go`)に統一しています。InMemory 実装は採用しません。
 
 - **ユニットテスト**: 生成された Mock(`internal/domain/repository/mock/`)を Service / UseCase のテストに注入
-- **結合テスト**: docker-compose または testcontainers で起動した PostgreSQL に接続し `tx.Init(db)` を呼んでから `NewPostgresUserRepository()` で取得。テスト用 schema は `AutoMigrateUser(db)` で同期(本番は使わない)
-- **本番**: 同じ `NewPostgresUserRepository()`。DB 接続情報は `env.DB*()` から。スキーマは `migrations/*.up.sql` を `golang-migrate` で適用
+- **結合テスト**: docker-compose または testcontainers で起動した PostgreSQL に接続し `tx.Init(db)` を呼んでから `NewPostgresUserRepository(rdbWrapper)` で取得。テスト用 schema は `AutoMigrateUser(db)` で同期(本番は使わない)
+- **本番**: 同じ `NewPostgresUserRepository(rdbWrapper)`。DB 接続情報は `env.DB*()` から。スキーマは `migrations/*.up.sql` を `golang-migrate` で適用
 
 ### 配線例 (`cmd/api/main.go`)
 
@@ -232,7 +225,9 @@ import (
     "gorm.io/driver/postgres"
     "gorm.io/gorm"
 
+    infrapostgres "example.com/blog/server/internal/infra/postgres"
     infrarepo "example.com/blog/server/internal/infra/repository"
+    "example.com/blog/server/pkg/util/errs"
     "example.com/blog/server/pkg/util/env"
     "example.com/blog/server/pkg/util/logger"
     "example.com/blog/server/pkg/util/tx"
@@ -241,11 +236,12 @@ import (
 logger.Init()
 dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
     env.DBHost(), env.DBPort(), env.DBUser(), env.DBPassword(), env.DBName())
-db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{TranslateError: true})
+db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 if err != nil { log.Fatal(err) }
 tx.Init(db)
 // 本番では AutoMigrateUser を呼ばない。代わりに migrations/*.up.sql を golang-migrate で適用しておく。
-userRepo := infrarepo.NewPostgresUserRepository()
+rdbWrapper := errs.NewRDBErrorWrapper(infrapostgres.NewPostgresErrorChecker())
+userRepo := infrarepo.NewPostgresUserRepository(rdbWrapper)
 ```
 
 ## Migration 運用 (`migrations/`)

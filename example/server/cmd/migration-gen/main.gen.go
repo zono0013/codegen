@@ -10,7 +10,7 @@
 //  3. 現在の schema と diff を取り、変更のあった entity ごとに 1 ファイル出す
 //  4. snapshot を更新
 //
-// ファイル名: <YYYYMMDDHHMMSS>_<table>.up.sql
+// ファイル名: <YYYYMMDDHHMMSS>_<create|alter|drop>_<table>.up.sql
 // 同じ実行で複数 entity に変更がある場合、テーブル名昇順に 1 秒ずつ繰り上げて出力する。
 //
 // 規約:

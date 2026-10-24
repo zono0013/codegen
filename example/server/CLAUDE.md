@@ -6,12 +6,11 @@ Go + DDD + クリーンアーキテクチャ + REST のバックエンドプロ�
 
 - **言語**: Go 1.27
 - **API スタイル**: REST(JSON over HTTP)。URL は proto の rpc に付けた `@http METHOD /path` アノテーションで宣言する
-- **Proto**: Protocol Buffers。codegen(`../../`)の `make proto-gen`(buf は使わない)でドメイン層〜ハンドラまで生成
+- **Proto**: Protocol Buffers。codegen(`../../`)の `make proto-gen` でドメイン層〜ハンドラまで生成
 - **コード生成プラグイン**:
   - `../../`(codegen。独自の Go モジュールで、server / front / OpenAPI の生成を一括で担い、proto の解釈を共有する。**生成の仕様は `../../docs/spec.md` が正本**) — proto の `@entity` / `@http` マーカーから以下を生成:
     - Entity / Repository interface / Mock / Postgres Repository 実装(エンティティ由来)
     - Usecase interface + Input 型、REST Handler 実装(`net/http`)、DI 用 `Handlers` struct(service 由来)
-  - **protoc-gen-go / protoc-gen-connect-go は採用しない**(REST なので proto メッセージ型は不要)
 - **HTTP ルーティング**: 標準 `net/http` + `http.ServeMux`(Go 1.22+ の `"METHOD /path/{param}"` パターン)
 - **データストア**: PostgreSQL（GORM `gorm.io/gorm` + `gorm.io/driver/postgres`、生成物の単一実装）
 - **テスト方針**: ユニットテストは生成 Mock を使う。結合テストは docker-compose / testcontainers の Postgres に接続
@@ -38,7 +37,7 @@ Go + DDD + クリーンアーキテクチャ + REST のバックエンドプロ�
 
   Entity (生成)
    └→ migration-gen (cmd/migration-gen) で以下を生成:
-      migrations/<YYYYMMDDHHMMSS>_<table>.up.sql               (Postgres up migration、1 entity につき 1 file)
+      migrations/<YYYYMMDDHHMMSS>_<create|alter|drop>_<table>.up.sql   (Postgres up migration、1 entity につき 1 file)
       migrations/.snapshot.json                                (前回適用 schema、git commit する)
                             ↓
   Handler (生成) ──json.Encode──→ DTO (生成)
@@ -52,7 +51,7 @@ Go + DDD + クリーンアーキテクチャ + REST のバックエンドプロ�
 - **依存方向**: 常に内側(Entity)に向かう。Entity は他層を import しない。
 - **DI**: コンストラクタ注入(`cmd/api/main.go` でワイヤリング)
 - **DTO 境界**: クライアントへ返す JSON 表現は **DTO 層が一元管理** する。Usecase が `*entity.X` を `*dto.XDTO` に変換して返し、Handler は `json.Encode(result)` するだけ。Entity 側の json タグは持たず、`gorm:` タグのみ。
-- **Entity = ORM モデル**: 生成 Entity は GORM の `column / primaryKey / uniqueIndex / not null` タグを所有し、`TableName()` も自動付与される。`*entity.X` を直接 `db.Create / Find` に渡せる(`HydrateX` のような中間モデルを噛ませない)。
+- **Entity = ORM モデル**: 生成 Entity は GORM の `column / primaryKey / uniqueIndex / not null` タグを所有し、`TableName()` も自動付与される。`*entity.X` を直接 `db.Create / Find` に渡せる(中間モデルを噛ませない)。
 - **可視性境界**: ドメイン〜インフラ〜DI〜Handler はすべて `internal/` 配下に置き、外部モジュールから import 不可にする。`pkg/util/` だけは横断的ユーティリティ(env / logger / errs / tx)として `pkg/` に残し、外部からも参照可能。
 
 ## ディレクトリ構造
@@ -80,9 +79,7 @@ server/
 │   └── util/                   # env / logger(★手書き) + errs / tx(*.gen.go、codegen が生成するランタイム)
 ├── migrations/                 # Postgres up SQL + .snapshot.json(migration-gen 出力 + ★git commit)
 └── docs/
-    ├── spec/                   # 仕様書
-    ├── work/                   # 実装計画書
-    └── knowledge/              # ナレッジ
+    └── work/                   # 実装計画書など（任意）
 ```
 
 > `proto/` はプロジェクトのルート（`../`）、生成器（codegen）は `../../` にある。FE・OpenAPI と同じ proto・同じ解釈を共有するため。生成物が proto と一致しているかは `make -C ../.. proto-check` で検査できる。
@@ -96,7 +93,7 @@ server/
 - **命名**:
   - パッケージ: 小文字（`entity`, `service`, `usecase`, `handler`）
   - インターフェース: ドメイン名を含めない（`repository.UserRepository` は OK、`user.UserRepository` は冗長）
-- **エラー**: 標準 `errors` パッケージで生成。文脈が必要なら `fmt.Errorf("context: %w", err)`
+- **エラー**: クライアントに返すエラー（バリデーション違反、見つからない など）は `errs.NewValidationError` / `errs.NewNotFoundError` などの `DomainError` で返す（Handler が Problem Details に変える）。それ以外の内部エラーは `fmt.Errorf("context: %w", err)` で文脈を付けて返す
 - **コンテキスト**: `context.Context` は第一引数
 - **時刻取得**: コンストラクタで注入された `clock func() time.Time` を経由（テスト容易性のため）
 - **コメント**: 原則書かない。書く場合は WHY のみ。公開 API は godoc
@@ -120,7 +117,7 @@ server/
 Entity の `gorm:` タグから Postgres 向けの up migration SQL を作る（`make migration-gen`）。ツール自体も codegen が生成する。入力・出力・差分の規則・規約は `../../docs/spec.md` の「マイグレーション」が正本（ここには重複して書かない）。特に守ること:
 
 - `migrations/*.up.sql` と `migrations/.snapshot.json` は両方 git commit する。SQL を手で直したら snapshot も合わせる
-- `-- WARNING:` の付いた SQL（NOT NULL の追加、DROP、型の変更）は確かめてから commit する
+- `-- WARNING:` の付いた SQL（NOT NULL の追加、DROP、型の変更、主キーの変更）は確かめてから commit する
 - **`cmd/api/main.go` は環境を問わず `AutoMigrate` を呼ばない**（`AutoMigrate<Name>` は integration test 用）
 
 ## 規約上の禁則

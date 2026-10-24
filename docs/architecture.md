@@ -27,6 +27,8 @@ REST Handler（生成）── Usecase interface（生成）
 - **依存は内側へ**: Handler → Usecase → Service → Repository interface → Entity。Entity は他の層を import しない
 - **抽象に依存する**: Service は Repository の interface だけを知る。Postgres の実装を組み立てるのは `cmd/api/main.go` だけ
 - **JSON の形は DTO が持つ**: Usecase が Entity を DTO に変えて返し、Handler はそれを JSON にするだけ。Entity は JSON のタグを持たない
+- **エラー**: Service はルール違反を `errs` の `DomainError`（`errs.NewValidationError` / `errs.NewNotFoundError` など）で返す。Repository は DB のエラーを `errs.RDBErrorWrapper` で `DomainError` に変える。Handler は `DomainError` を RFC 9457 の Problem Details（ステータスと title）にして返す
+- **トランザクション**: 境界は Service が張る（`tx.Run`。テストでは素通しの関数を渡す）。Repository は `tx.From(ctx)` で同じトランザクションを使う
 - **テスト**: Service / Usecase のユニットテストは生成した Mock Repository を使う。実 DB が要るテストは testcontainers などで Postgres を立てる
 - **ランタイム**: 生成コードが依存する `errs`（RFC 9457 の Problem Details）、`tx`（トランザクション境界）、Postgres のエラー判定、マイグレーション生成ツールも生成する（[`spec.md` のランタイム](spec.md#ランタイム)）
 
@@ -62,8 +64,14 @@ DB のスキーマは、Entity の `gorm` タグから差分の SQL を作って
 
 永続化は Postgres（GORM）だけを生成する。別の DB にするには、codegen の次の部分を差し替える。
 
-- Repository 実装のテンプレート: `internal/gogen/generator/infra_postgres_repository/`
-- Postgres のエラー判定（ランタイム）: `internal/gogen/runtime/internal/infra/postgres/`
-- マイグレーションの SQL 出力: `internal/gogen/runtime/cmd/migration-gen/sql.go.src`
+- **GORM で扱える DB（MySQL など）**
+  - Repository 実装のテンプレート: `internal/gogen/generator/infra_postgres_repository/`
+  - DB のエラー判定（ランタイム）: `internal/gogen/runtime/internal/infra/postgres/`
+  - マイグレーションの SQL 出力: `internal/gogen/runtime/cmd/migration-gen/sql.go.src`
+- **GORM で扱えない DB（Redis、MongoDB など）**: 上に加えて、GORM に依存している部分も差し替える
+  - Entity のテンプレート（`gorm` タグ）: `internal/gogen/generator/entity/`
+  - トランザクション境界（ランタイム、`*gorm.DB` に依存）: `internal/gogen/runtime/pkg/util/tx/`
+  - DB のエラーの変換（ランタイム）: `internal/gogen/runtime/pkg/util/errs/rdb_wrapper.go.src`、`checker.go.src`
+  - マイグレーション生成（`gorm.io/gorm/schema` で Entity を読む）: `internal/gogen/runtime/cmd/migration-gen/`
 
 生成物は `make proto-gen` のたびに上書きされるので、使う側で生成物を直しても元に戻る。DB を変えるには、codegen に PR を出すかフォークする。
