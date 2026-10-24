@@ -220,7 +220,7 @@ func generate(files []*protogen.File, params Params) (map[string][]byte, error) 
 	if err := addRuntime(out, params.ImportPath); err != nil {
 		return nil, err
 	}
-	// mss-migration-gen（ランタイム）が entity.All を参照するので、entity が無くても出す
+	// migration-gen（ランタイム）が entity.All を参照するので、entity が無くても出す
 	sorted := slices.SortedFunc(slices.Values(entities), func(a, b *entity) int { return strings.Compare(a.Name, b.Name) })
 	if err := render("entity_registry", "internal/domain/entity/registry.gen.go", struct{ Entities []*entity }{sorted}); err != nil {
 		return nil, err
@@ -228,7 +228,7 @@ func generate(files []*protogen.File, params Params) (map[string][]byte, error) 
 	return out, nil
 }
 
-// addRuntime は生成コードが依存するランタイム（errs / tx / Postgres のエラー判定 / mss-migration-gen）を out に加える。
+// addRuntime は生成コードが依存するランタイム（errs / tx / Postgres のエラー判定 / migration-gen）を out に加える。
 // proto の内容に関係なく毎回出す。runtime/<出力先をミラーしたパス>/<name>.go.src → <name>.gen.go。
 func addRuntime(out map[string][]byte, importPath string) error {
 	return fs.WalkDir(templatesFS, "runtime", func(p string, d fs.DirEntry, err error) error {

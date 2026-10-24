@@ -96,7 +96,7 @@ codegen/
 
 ```bash
 make proto-gen                                     # example/ に生成
-cd example/server && make install-tools            # golang-migrate / mss-migration-gen
+cd example/server && make install-tools            # golang-migrate / migration-gen
 cp .env.example .env.local && docker compose up -d db && make migrate-up
 make run                                           # API（:8080）
 cd ../front && pnpm install && pnpm dev            # 別ターミナルで FE（:3000）

@@ -32,9 +32,9 @@ fmt: ## フォーマット
 tidy: ## go.sum 整理
 	go mod tidy
 
-install-tools: ## mss-migration-gen + migrate をインストール（proto からの生成は codegen の make proto-gen。buf は不要）
+install-tools: ## migration-gen + migrate をインストール（proto からの生成は codegen の make proto-gen。buf は不要）
 	go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@$(MIGRATE_VERSION)
-	go install ./cmd/mss-migration-gen
+	go install ./cmd/migration-gen
 
 proto-gen: ## proto から生成（codegen の make proto-gen。server / front / OpenAPI をまとめて生成する）
 	$(MAKE) -C ../.. proto-gen
@@ -43,10 +43,10 @@ proto-clean: ## 生成物を削除（codegen の make proto-clean。server / fro
 	$(MAKE) -C ../.. proto-clean
 
 migration-gen: ## entity から Postgres up migration SQL を生成 (snapshot 差分ベース)
-	go run ./cmd/mss-migration-gen
+	go run ./cmd/migration-gen
 
 migration-gen-dry: ## migration-gen の dry-run (SQL を標準出力に出すだけ)
-	go run ./cmd/mss-migration-gen -dry-run
+	go run ./cmd/migration-gen -dry-run
 
 migrate-up: ## migrations を全適用 (.env.local の DATABASE_URL を使用)
 	migrate -path migrations -database "$$DATABASE_URL" up

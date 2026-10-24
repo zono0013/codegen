@@ -27,7 +27,7 @@ Go + DDD + クリーンアーキテクチャ + REST のバックエンドプロ�
   Proto (.proto)
    └→ make proto-gen (../../internal/gogen) で以下を生成:
       internal/domain/entity/*.gen.go                          (Entity + GORM タグ)
-      internal/domain/entity/registry.gen.go                   (var All = []any{...} mss-migration-gen 用)
+      internal/domain/entity/registry.gen.go                   (var All = []any{...} migration-gen 用)
       internal/domain/repository/*_repository.gen.go           (interface)
       internal/domain/repository/mock/mock_*_repository.gen.go (テスト用スタブ)
       internal/infra/repository/*_postgres_repository.gen.go   (Postgres + GORM)
@@ -37,7 +37,7 @@ Go + DDD + クリーンアーキテクチャ + REST のバックエンドプロ�
       internal/di/handlers.gen.go                              (Handlers struct + Register(mux))
 
   Entity (生成)
-   └→ mss-migration-gen (cmd/mss-migration-gen) で以下を生成:
+   └→ migration-gen (cmd/migration-gen) で以下を生成:
       migrations/<YYYYMMDDHHMMSS>_<table>.up.sql               (Postgres up migration、1 entity につき 1 file)
       migrations/.snapshot.json                                (前回適用 schema、git commit する)
                             ↓
@@ -61,7 +61,7 @@ Go + DDD + クリーンアーキテクチャ + REST のバックエンドプロ�
 server/
 ├── cmd/
 │   ├── api/                    # エントリポイント(ワイヤリング + net/http)
-│   └── mss-migration-gen/      # *.gen.go(entity → Postgres up SQL の独自ジェネレータ、codegen が生成)
+│   └── migration-gen/          # *.gen.go(entity → Postgres up SQL の独自ジェネレータ、codegen が生成)
 ├── internal/
 │   ├── domain/
 │   │   ├── entity/             # *.gen.go(生成、GORM タグ + TableName 内蔵)
@@ -78,7 +78,7 @@ server/
 │       └── handlers.gen.go     # Handlers struct + Register(mux)(生成)
 ├── pkg/
 │   └── util/                   # env / logger(★手書き) + errs / tx(*.gen.go、codegen が生成するランタイム)
-├── migrations/                 # Postgres up SQL + .snapshot.json(mss-migration-gen 出力 + ★git commit)
+├── migrations/                 # Postgres up SQL + .snapshot.json(migration-gen 出力 + ★git commit)
 └── docs/
     ├── spec/                   # 仕様書
     ├── work/                   # 実装計画書
@@ -103,7 +103,7 @@ server/
 
 ## よく使うコマンド
 
-- **ツールインストール**: `make install-tools`(golang-migrate + mss-migration-gen)
+- **ツールインストール**: `make install-tools`(golang-migrate + migration-gen)
 - **Proto 生成**: `make proto-gen`(proto 変更後は必須。codegen の `make proto-gen` を呼ぶ)
 - **生成物削除**: `make proto-clean`
 - **Migration 生成**: `make migration-gen`(entity 変更後、Postgres up SQL を `migrations/` に出力)
@@ -115,7 +115,7 @@ server/
 - **フォーマット**: `make fmt`
 - **Docker 起動**: `make docker-up`
 
-## Migration 生成 (`cmd/mss-migration-gen`)
+## Migration 生成 (`cmd/migration-gen`)
 
 Entity の `gorm:` タグから Postgres 向け **up migration SQL** を自動生成する独自ツール。`make migration-gen` で起動。ツール自体も `make proto-gen` が生成する（`*.gen.go`、手で編集しない）。
 
@@ -146,7 +146,7 @@ Entity の `gorm:` タグから Postgres 向け **up migration SQL** を自動�
 
 `internal/infra/repository/*_postgres_repository.gen.go` には `AutoMigrate<Name>(db *gorm.DB)` も生成されているが、**integration test でスキーマを用意するためのヘルパー**。
 
-**`cmd/api/main.go` は環境を問わず `AutoMigrate` を呼ばない。** GORM が期待する制約名（`uni_<table>_<column>`）と `mss-migration-gen` が出す SQL の制約名（Postgres 既定の `<table>_<column>_key`）が食い違うため、migration 適用済みの DB に対して AutoMigrate を走らせると `DROP CONSTRAINT` に失敗して起動できない。スキーマ適用は `make migration-gen` → `make migrate-up` の一本道にする。
+**`cmd/api/main.go` は環境を問わず `AutoMigrate` を呼ばない。** GORM が期待する制約名（`uni_<table>_<column>`）と `migration-gen` が出す SQL の制約名（Postgres 既定の `<table>_<column>_key`）が食い違うため、migration 適用済みの DB に対して AutoMigrate を走らせると `DROP CONSTRAINT` に失敗して起動できない。スキーマ適用は `make migration-gen` → `make migrate-up` の一本道にする。
 
 ## 規約上の禁則
 

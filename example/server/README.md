@@ -2,12 +2,12 @@
 
 Go + DDD + クリーンアーキテクチャ + REST のバックエンド。[codegen](../../README.md) で proto から DDD の各層を生成するプロジェクトのバックエンド。
 
-> アーキテクチャの背景は [`../../docs/patterns/`](../../docs/patterns/README.md)（proto 駆動 DDD / `mss-protoc-gen` / `mss-migration-gen` / インフラ差し替え）を参照。
+> アーキテクチャの背景は [`../../docs/patterns/`](../../docs/patterns/README.md)（proto 駆動 DDD / `mss-protoc-gen` / `migration-gen` / インフラ差し替え）を参照。
 
 ## セットアップ
 
 ```bash
-make install-tools          # golang-migrate + mss-migration-gen をインストール
+make install-tools          # golang-migrate + migration-gen をインストール
 make proto-gen              # proto からコード生成 (entity / repository / handler / usecase / dto / DI)
 go mod tidy                 # 依存解決
 cp .env.example .env.local  # 起動前に環境変数ファイルを用意 (APP_ENV=local で読まれる)
@@ -201,7 +201,7 @@ proto/user/v1/user.proto  ← 唯一の手書き source
      │   ├→ internal/handler/user_handler.gen.go             (REST Handler、net/http)
      │   └→ internal/di/handlers.gen.go                      (Register(mux))
      │
-     └─ make migration-gen (cmd/mss-migration-gen)
+     └─ make migration-gen (cmd/migration-gen)
          │
          └→ migrations/<timestamp>_<table>.up.sql            (差分ベース、CASCADE/DEFAULT は使わない)
             migrations/.snapshot.json                        (前回適用 schema、git commit)
@@ -250,7 +250,7 @@ userRepo := infrarepo.NewPostgresUserRepository()
 
 ## Migration 運用 (`migrations/`)
 
-Entity の `gorm:` タグから `make migration-gen` で **差分 SQL** を生成する独自ツール (`cmd/mss-migration-gen`)。`../../`（codegen）の Go 生成と対をなすバイナリ。
+Entity の `gorm:` タグから `make migration-gen` で **差分 SQL** を生成する独自ツール (`cmd/migration-gen`)。`../../`（codegen）の Go 生成と対をなすバイナリ。
 
 - **ファイル形式**: `migrations/<YYYYMMDDHHMMSS>_<table>.up.sql` (1 entity 1 file、golang-migrate 互換)
 - **状態保持**: `migrations/.snapshot.json` (前回適用した schema を JSON に。**git commit する**)
@@ -263,7 +263,7 @@ Entity の `gorm:` タグから `make migration-gen` で **差分 SQL** を生�
 
 ### 別 DB (MySQL / Redis / MongoDB) へ移管する場合
 
-CLAUDE.md の「データストア」欄と `../../internal/gogen/generator/infra_postgres_repository/` のテンプレートを書き換えて `make proto-gen` で再生成する。ランタイムの DI 切り替えではなく、**テンプレート差し替え + 再生成** が切り替え手段。`mss-migration-gen` も Postgres 前提で書かれているので、別 DB の場合は SQL 出力部（codegen の `internal/gogen/runtime/cmd/mss-migration-gen/sql.go.src`）を該当 dialect に書き換える。テンプレートもランタイムも codegen の中にあるので、codegen に PR を出すかフォークする（使う側で生成物を編集しても次の `make proto-gen` で戻る）。
+CLAUDE.md の「データストア」欄と `../../internal/gogen/generator/infra_postgres_repository/` のテンプレートを書き換えて `make proto-gen` で再生成する。ランタイムの DI 切り替えではなく、**テンプレート差し替え + 再生成** が切り替え手段。`migration-gen` も Postgres 前提で書かれているので、別 DB の場合は SQL 出力部（codegen の `internal/gogen/runtime/cmd/migration-gen/sql.go.src`）を該当 dialect に書き換える。テンプレートもランタイムも codegen の中にあるので、codegen に PR を出すかフォークする（使う側で生成物を編集しても次の `make proto-gen` で戻る）。
 
 詳細は:
 - [`../../docs/patterns/infra-swap.md`](../../docs/patterns/infra-swap.md)

@@ -6,7 +6,7 @@
 proto/**/*.proto          （置き場所と出力先は codegen.yaml で決める。下は既定の配置）
    │  make proto-gen（= go run ./cmd/gen -root example）
    ├─→ server/**/*.gen.go            Entity / Repository / Mock / Postgres 実装 / DTO / Usecase interface / REST Handler / DI 配線
-   │                                 + ランタイム（errs / tx / Postgres のエラー判定 / mss-migration-gen）
+   │                                 + ランタイム（errs / tx / Postgres のエラー判定 / migration-gen）
    ├─→ front/generate/**/*.gen.ts    Zod スキーマ + 型 / 型付き API クライアント
    └─→ docs/openapi/**/*.gen.yaml    OpenAPI 3.0（path・schema ごとに分割）
 ```
@@ -22,7 +22,7 @@ Go ツールチェーンだけで動く（buf / protoc は不要）。
 | `pkg/util/errs/*.gen.go` | `DomainError` / RFC 9457 の Problem 出力 / RDB エラーの変換 | `internal/gogen/runtime/pkg/util/errs/` |
 | `pkg/util/tx/tx.gen.go` | トランザクション境界（`tx.Run` / `tx.From`） | `internal/gogen/runtime/pkg/util/tx/` |
 | `internal/infra/postgres/errors.gen.go` | `errs.DBErrorChecker` の Postgres 実装 | `internal/gogen/runtime/internal/infra/postgres/` |
-| `cmd/mss-migration-gen/*.gen.go` | entity の gorm タグから up migration SQL を作るツール | `internal/gogen/runtime/cmd/mss-migration-gen/` |
+| `cmd/migration-gen/*.gen.go` | entity の gorm タグから up migration SQL を作るツール | `internal/gogen/runtime/cmd/migration-gen/` |
 
 - 元のソースは `*.go.src`。Go の複合リテラル（`{{...}}`）を含むので text/template は使わず、`__IMPORT_PATH__` だけを生成先の import path に置き換える
 - **エラーの種類を増やすとき**は生成物を編集せず、パッケージ変数の初期化で `errs.Register` を呼ぶ（`var ErrorTypeTeapot = errs.Register("TEAPOT", http.StatusTeapot, "I'm a teapot")`）。`init` で呼ぶと、それより先に初期化されるパッケージ変数の `errs.New` が登録前の対応（500）を使ってしまう
