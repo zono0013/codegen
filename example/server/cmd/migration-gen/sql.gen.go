@@ -105,11 +105,7 @@ func emitAlter(b *strings.Builder, c tableChange) {
 	}
 
 	for _, name := range c.DropUniqueCols {
-		// 名前を明示する前に CREATE TABLE で作った unique は Postgres 既定の名前なので、両方を試す
-		fmt.Fprintf(b, "ALTER TABLE %s DROP CONSTRAINT IF EXISTS %s;\n",
-			tbl, quoteIdent(uniqueConstraintName(c.Table, name)))
-		fmt.Fprintf(b, "ALTER TABLE %s DROP CONSTRAINT IF EXISTS %s;\n",
-			tbl, quoteIdent(postgresDefaultUniqueName(c.Table, name)))
+		emitDropUnique(b, c.Table, name)
 	}
 
 	for _, name := range c.DropColumns {
@@ -163,10 +159,35 @@ func uniqueConstraintName(table, column string) string {
 	return fmt.Sprintf("uq_%s_%s", table, column)
 }
 
-// postgresDefaultUniqueName は、名前を付けずに作った単一カラムの unique 制約に Postgres が付ける名前。
-// 長い名前は 63 バイトに切り詰められるが、ここでは切り詰めない（その場合は手で直す）。
-func postgresDefaultUniqueName(table, column string) string {
-	return fmt.Sprintf("%s_%s_key", table, column)
+// emitDropUnique は table.column だけに付いた unique 制約を、名前ではなく列で探して外す。
+// 名前は、作った時期（名前を明示する前は Postgres 既定の <table>_<column>_key）、手での変更、
+// 長い名前の切り詰めで変わりうるため。見つからなければ失敗させ、snapshot と DB の食い違いに気づけるようにする。
+func emitDropUnique(b *strings.Builder, table, column string) {
+	rel := quoteLiteral(quoteIdent(table))
+	col := quoteLiteral(column)
+	fmt.Fprintf(b, `DO $$
+DECLARE
+  con_name text;
+BEGIN
+  SELECT con.conname INTO con_name
+    FROM pg_constraint con
+    JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = con.conkey[1]
+   WHERE con.conrelid = %[1]s::regclass
+     AND con.contype = 'u'
+     AND array_length(con.conkey, 1) = 1
+     AND att.attname = %[2]s
+   LIMIT 1;
+  IF con_name IS NULL THEN
+    RAISE EXCEPTION 'unique constraint on %%.%% not found', %[1]s, %[2]s;
+  END IF;
+  EXECUTE format('ALTER TABLE %%s DROP CONSTRAINT %%I', %[1]s::regclass, con_name);
+END $$;
+`, rel, col)
+}
+
+// quoteLiteral は SQL の文字列リテラルにする（' を ” にする）。
+func quoteLiteral(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
 }
 
 // quoteIdent は最小限の identifier クオート。Postgres は二重引用符で囲む。
