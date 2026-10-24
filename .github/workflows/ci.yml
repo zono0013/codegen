@@ -53,6 +53,16 @@ jobs:
       - run: go vet ./...
       - run: go test ./...
 
+  example-server-docker:
+    name: example/server（Docker イメージのビルド）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      # ベースイメージ（golang / alpine）の更新で壊れても気づけるように、ビルドだけする（push はしない）
+      - run: docker build --pull -t example-server:ci example/server
+
   example-front:
     name: example/front
     runs-on: ubuntu-latest
