@@ -12,7 +12,8 @@ class ApiClient {
 
   constructor() {
     this.axiosInstance = axios.create({
-      baseURL: process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080',
+      // 同一オリジンの /api/* に送り、next.config.ts の rewrites でバックエンドに転送する（CORS を要らなくする）
+      baseURL: '',
       timeout: 30000,
       headers: { 'Content-Type': 'application/json' },
     })
