@@ -6,3 +6,5 @@ allowBuilds:
 
 overrides:
   postcss: "8.5.23"
+  # @vitejs/plugin-react と vitest 経由。8.3.0〜8.3.2 に脆弱性（high）があるため、8 系の修正版以上にする
+  vite: "8.3.5"
