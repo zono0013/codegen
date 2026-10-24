@@ -1,0 +1,61 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "timezone": "Asia/Tokyo",
+  "schedule": ["before 10am on monday"],
+  "semanticCommits": "enabled",
+  "semanticCommitType": "chore",
+  "semanticCommitScope": "deps",
+  "labels": ["dependencies"],
+  "postUpdateOptions": ["gomodTidy"],
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "labels": ["dependencies", "security"]
+  },
+  "packageRules": [
+    {
+      "description": "エコシステムごとのラベル",
+      "matchManagers": ["gomod"],
+      "addLabels": ["go"]
+    },
+    {
+      "matchManagers": ["npm"],
+      "addLabels": ["javascript"]
+    },
+    {
+      "matchManagers": ["dockerfile", "docker-compose"],
+      "addLabels": ["docker"]
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "addLabels": ["github-actions"]
+    },
+    {
+      "description": "minor / patch はエコシステムごとに 1 本にまとめる（major は個別の PR）",
+      "matchManagers": ["gomod"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "Go modules（minor / patch）"
+    },
+    {
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "npm（minor / patch）"
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "GitHub Actions（minor / patch）"
+    },
+    {
+      "description": "Go 本体のバージョン（go.mod の go ディレクティブと Dockerfile の golang イメージ）はそろえて 1 本にする",
+      "matchDatasources": ["golang-version", "docker"],
+      "matchPackageNames": ["go", "golang"],
+      "groupName": "Go のバージョン"
+    },
+    {
+      "description": "公開直後の npm パッケージは取り下げや乗っ取りがあり得るので 3 日待つ",
+      "matchManagers": ["npm"],
+      "minimumReleaseAge": "3 days"
+    }
+  ]
+}
