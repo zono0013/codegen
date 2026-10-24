@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 脆弱性の報告
+    url: https://github.com/zono0013/codegen/security/advisories/new
+    about: 脆弱性は公開の Issue ではなく、ここから非公開で報告してください（SECURITY.md）
