@@ -134,8 +134,10 @@
       "minimumReleaseAge": "3 days"
     },
     {
-      "description": "脆弱性の修正（major 以外）は、必須チェック（E2E を含む CI）が通ったら自動マージする。修正版はアドバイザリが名指しする最小のバージョン（vulnerabilityFixStrategy: lowest）なので、公開直後の版を取り込む心配は小さい。major は破壊的変更があり得るので手動",
-      "isVulnerabilityAlert": true,
+      "description": "脆弱性の修正（major 以外）は、必須チェック（E2E を含む CI）が通ったら自動マージする。packageRules の isVulnerabilityAlert は条件ではなく印を付ける設定なので、matchJsonata で絞る（使うと全更新が対象になる）。major は破壊的変更があり得るので手動",
+      "matchJsonata": [
+        "isVulnerabilityAlert = true"
+      ],
       "matchUpdateTypes": [
         "patch",
         "minor",
