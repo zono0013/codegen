@@ -1,6 +1,6 @@
 module github.com/zono0013/codegen
 
-go 1.25.0
+go 1.27.3
 
 require (
 	github.com/bufbuild/protocompile v0.14.1
@@ -16,6 +16,6 @@ require (
 	github.com/oasdiff/yaml v0.1.1 // indirect
 	github.com/oasdiff/yaml3 v0.0.14 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
-	golang.org/x/sync v0.8.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/sync v0.24.0 // indirect
+	golang.org/x/text v0.43.0 // indirect
 )
