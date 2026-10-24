@@ -41,7 +41,7 @@ func emitCreate(b *strings.Builder, t *tableSchema) {
 
 	parts := make([]string, 0, len(cols))
 	for _, c := range cols {
-		parts = append(parts, "  "+columnDefSQL(c))
+		parts = append(parts, "  "+columnDefSQL(t.Name, c))
 	}
 	b.WriteString(strings.Join(parts, ",\n"))
 	b.WriteString("\n);\n")
@@ -57,8 +57,8 @@ func emitCreate(b *strings.Builder, t *tableSchema) {
 	}
 }
 
-// columnDefSQL は CREATE TABLE 内の 1 カラム定義。DEFAULT は使わない方針なので生成しない。
-func columnDefSQL(c columnSchema) string {
+// columnDefSQL は CREATE TABLE / ADD COLUMN の 1 カラム定義。DEFAULT は使わない方針なので生成しない。
+func columnDefSQL(table string, c columnSchema) string {
 	parts := []string{quoteIdent(c.Name), c.SQLType}
 	if c.PrimaryKey {
 		parts = append(parts, "PRIMARY KEY")
@@ -67,7 +67,8 @@ func columnDefSQL(c columnSchema) string {
 		parts = append(parts, "NOT NULL")
 	}
 	if c.Unique && !c.PrimaryKey {
-		parts = append(parts, "UNIQUE")
+		// 後から外すときと同じ名前にするため、名前を明示する（Postgres 既定は <table>_<column>_key）
+		parts = append(parts, "CONSTRAINT "+quoteIdent(uniqueConstraintName(table, c.Name))+" UNIQUE")
 	}
 	return strings.Join(parts, " ")
 }
@@ -82,7 +83,7 @@ func emitAlter(b *strings.Builder, c tableChange) {
 		if col.NotNull && !col.PrimaryKey {
 			b.WriteString("-- WARNING: 既存行があれば NOT NULL カラムの追加は失敗します。先に値を埋めてから ALTER で NOT NULL を付けるか、本ファイルを 2 段階に分けてください。\n")
 		}
-		fmt.Fprintf(b, "ALTER TABLE %s ADD COLUMN %s;\n", tbl, columnDefSQL(col))
+		fmt.Fprintf(b, "ALTER TABLE %s ADD COLUMN %s;\n", tbl, columnDefSQL(c.Table, col))
 	}
 
 	for _, ac := range c.AlterColumns {
@@ -102,8 +103,11 @@ func emitAlter(b *strings.Builder, c tableChange) {
 	}
 
 	for _, name := range c.DropUniqueCols {
-		fmt.Fprintf(b, "ALTER TABLE %s DROP CONSTRAINT %s;\n",
+		// 名前を明示する前に CREATE TABLE で作った unique は Postgres 既定の名前なので、両方を試す
+		fmt.Fprintf(b, "ALTER TABLE %s DROP CONSTRAINT IF EXISTS %s;\n",
 			tbl, quoteIdent(uniqueConstraintName(c.Table, name)))
+		fmt.Fprintf(b, "ALTER TABLE %s DROP CONSTRAINT IF EXISTS %s;\n",
+			tbl, quoteIdent(postgresDefaultUniqueName(c.Table, name)))
 	}
 
 	for _, name := range c.DropColumns {
@@ -155,6 +159,12 @@ func emitCreateIndex(b *strings.Builder, table string, idx indexSchema) {
 
 func uniqueConstraintName(table, column string) string {
 	return fmt.Sprintf("uq_%s_%s", table, column)
+}
+
+// postgresDefaultUniqueName は、名前を付けずに作った単一カラムの unique 制約に Postgres が付ける名前。
+// 長い名前は 63 バイトに切り詰められるが、ここでは切り詰めない（その場合は手で直す）。
+func postgresDefaultUniqueName(table, column string) string {
+	return fmt.Sprintf("%s_%s_key", table, column)
 }
 
 // quoteIdent は最小限の identifier クオート。Postgres は二重引用符で囲む。
