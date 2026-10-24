@@ -5,7 +5,6 @@ on:
     branches: [main]
   pull_request:
 
-# アクションはタグではなくコミットハッシュで固定する（タグは付け替えられるため）。更新は Renovate が行う。
 permissions:
   contents: read
 
@@ -15,6 +14,8 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# アクションは、タグではなくコミットハッシュで指定する（タグは後から付け替えられるため）。
+# バージョンはコメントで残し、更新は Renovate（helpers:pinGitHubActionDigests）に任せる。
 jobs:
   codegen:
     name: codegen（ジェネレータのテストと example/ の生成物の検査）
