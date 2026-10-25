@@ -2,8 +2,12 @@
 package entity
 
 import (
+{{- if .NeedsErrors}}
 	"errors"
+{{- end}}
+{{- if .NeedsStrings}}
 	"strings"
+{{- end}}
 	"time"
 {{- if .HasDecimal}}
 
