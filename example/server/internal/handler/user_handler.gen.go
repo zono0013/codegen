@@ -35,7 +35,7 @@ func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 // GET /api/users/cursor
 func (h *UserHandler) ListUsersByCursor(w http.ResponseWriter, r *http.Request) {
 	_urlq := r.URL.Query()
-	_limit, _ := strconv.Atoi(_urlq.Get("limit"))
+	_limit, _ := strconv.ParseInt(_urlq.Get("limit"), 10, 32)
 	_afterId := _urlq.Get("after_id")
 	list, err := h.usecase.ListUsersByCursor(r.Context(), usecase.ListUsersByCursorInput{
 		Limit:   int32(_limit),

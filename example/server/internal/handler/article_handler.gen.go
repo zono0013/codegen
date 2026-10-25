@@ -35,7 +35,7 @@ func (h *ArticleHandler) ListArticles(w http.ResponseWriter, r *http.Request) {
 // GET /api/articles/cursor
 func (h *ArticleHandler) ListArticlesByCursor(w http.ResponseWriter, r *http.Request) {
 	_urlq := r.URL.Query()
-	_limit, _ := strconv.Atoi(_urlq.Get("limit"))
+	_limit, _ := strconv.ParseInt(_urlq.Get("limit"), 10, 32)
 	_afterId := _urlq.Get("after_id")
 	list, err := h.usecase.ListArticlesByCursor(r.Context(), usecase.ListArticlesByCursorInput{
 		Limit:   int32(_limit),
