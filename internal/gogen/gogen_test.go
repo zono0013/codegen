@@ -170,11 +170,11 @@ func TestGenerate_TypedParams(t *testing.T) {
 		`_force, err := strconv.ParseBool(r.PathValue("force"))`,
 		`int32(_rev),`,
 		// query の符号なし整数は同じ型で読む（int32 / int64 のまま代入するとコンパイルできない）
-		`_page, _ := strconv.ParseUint(_urlq.Get("page"), 10, 32)`,
+		`_page, _ := strconv.ParseUint(urlQuery.Get("page"), 10, 32)`,
 		`uint32(_page),`,
-		`_offset, _ := strconv.ParseUint(_urlq.Get("offset"), 10, 64)`,
-		`_archived := _urlq.Get("archived") == "true"`,
-		`_q := _urlq.Get("q")`,
+		`_offset, _ := strconv.ParseUint(urlQuery.Get("offset"), 10, 64)`,
+		`_archived, _ := strconv.ParseBool(urlQuery.Get("archived"))`,
+		`_q := urlQuery.Get("q")`,
 		`"strconv"`,
 	} {
 		if !strings.Contains(src, want) {

@@ -343,3 +343,28 @@ func TestGenerate_EntitySchema(t *testing.T) {
 		t.Errorf("tags は string の配列のはず")
 	}
 }
+
+func TestGenerate_TypedPathParams(t *testing.T) {
+	// Handler は整数 / bool の path param をその型に変換して読む（読めなければ 400）ので、仕様も同じ型にする
+	files := prototest.Generate(t, map[string]string{"tag/v1/tag.proto": `syntax = "proto3";
+package tag.v1;
+message GetTagRequest {
+  int64 id = 1;
+  bool archived = 2;
+  string slug = 3;
+}
+message GetTagResponse { string name = 1; }
+service TagService {
+  // @http GET /api/tags/{id}/{archived}/{slug}
+  rpc GetTag(GetTagRequest) returns (GetTagResponse);
+}
+`}, New(Params{Title: "Tag API", Version: "0.1.0"}))
+	doc := prototest.LoadOpenAPI(t, files, RootFile)
+	o := op(t, doc, "GET", "/api/tags/{id}/{archived}/{slug}")
+	for name, want := range map[string]string{"id": "integer", "archived": "boolean", "slug": "string"} {
+		p := o.Parameters.GetByInAndName("path", name)
+		if p == nil || !p.Required || !p.Schema.Value.Type.Is(want) {
+			t.Errorf("path param %s = %+v, want 必須の %s", name, p, want)
+		}
+	}
+}

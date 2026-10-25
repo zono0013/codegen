@@ -67,15 +67,13 @@ func (h *{{$.HandlerTypeName}}) {{.Name}}(w http.ResponseWriter, r *http.Request
 {{- end}}
 {{- end}}
 {{- if .QueryFields}}
-	_urlq := r.URL.Query()
+	urlQuery := r.URL.Query()
 {{- range .QueryFields}}
 {{- if eq .ScalarGoType "string"}}
-	_{{.ParamName}} := _urlq.Get("{{.JsonName}}")
-{{- else if eq .ScalarGoType "bool"}}
-	_{{.ParamName}} := _urlq.Get("{{.JsonName}}") == "true"
+	_{{.ParamName}} := urlQuery.Get("{{.JsonName}}")
 {{- else}}
-{{- /* 無い・読めない query は 0 として扱う（query は省略できるので 400 にしない） */}}
-	_{{.ParamName}}, _ := {{printf .ParseFormat (printf "_urlq.Get(%q)" .JsonName)}}
+{{- /* 無い・読めない query はゼロ値（範囲外の整数は strconv が返す端の値）として扱う。query は省略できるので 400 にしない */}}
+	_{{.ParamName}}, _ := {{printf .ParseFormat (printf "urlQuery.Get(%q)" .JsonName)}}
 {{- end}}
 {{- end}}
 {{- end}}

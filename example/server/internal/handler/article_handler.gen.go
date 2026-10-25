@@ -34,9 +34,9 @@ func (h *ArticleHandler) ListArticles(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/articles/cursor
 func (h *ArticleHandler) ListArticlesByCursor(w http.ResponseWriter, r *http.Request) {
-	_urlq := r.URL.Query()
-	_limit, _ := strconv.ParseInt(_urlq.Get("limit"), 10, 32)
-	_afterId := _urlq.Get("after_id")
+	urlQuery := r.URL.Query()
+	_limit, _ := strconv.ParseInt(urlQuery.Get("limit"), 10, 32)
+	_afterId := urlQuery.Get("after_id")
 	list, err := h.usecase.ListArticlesByCursor(r.Context(), usecase.ListArticlesByCursorInput{
 		Limit:   int32(_limit),
 		AfterID: _afterId,
@@ -52,8 +52,8 @@ func (h *ArticleHandler) ListArticlesByCursor(w http.ResponseWriter, r *http.Req
 
 // GET /api/articles/by-slug
 func (h *ArticleHandler) GetArticleBySlug(w http.ResponseWriter, r *http.Request) {
-	_urlq := r.URL.Query()
-	_slug := _urlq.Get("slug")
+	urlQuery := r.URL.Query()
+	_slug := urlQuery.Get("slug")
 	result, err := h.usecase.GetArticleBySlug(r.Context(), usecase.GetArticleBySlugInput{
 		Slug: _slug,
 	})

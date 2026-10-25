@@ -491,8 +491,7 @@ func buildService(svc *protogen.Service, entities map[protoreflect.FullName]*ent
 			for _, f := range fields.Query {
 				in := inputs[f]
 				mt.QueryFields = append(mt.QueryFields, in)
-				// query の bool は "true" との比較で読むので strconv は要らない
-				s.NeedsStrconv = s.NeedsStrconv || in.ParseFormat != "" && in.ScalarGoType != "bool"
+				s.NeedsStrconv = s.NeedsStrconv || in.ParseFormat != ""
 			}
 		}
 
