@@ -186,6 +186,18 @@ func runInit(root string, o initOptions, stdout io.Writer) error {
 		return err
 	}
 
+	opts := scaffold.Options{
+		From:       from,
+		To:         absRoot,
+		CodegenDir: filepath.ToSlash(codegenDir),
+		FromModule: sample.Targets.Server.ImportPath,
+		Force:      o.force,
+	}
+	// 初期化済みなら、何かを聞く前に止める
+	if err := scaffold.CheckConfigAbsent(opts); err != nil {
+		return err
+	}
+
 	if o.module == "" && isTerminal(os.Stdin) {
 		o.module = prompt(stdout, "server の Go module（例: github.com/you/app/server）: ")
 	}
@@ -201,18 +213,8 @@ func runInit(root string, o initOptions, stdout io.Writer) error {
 		}
 	}
 
-	opts := scaffold.Options{
-		From:       from,
-		To:         absRoot,
-		CodegenDir: filepath.ToSlash(codegenDir),
-		FromModule: sample.Targets.Server.ImportPath,
-		ToModule:   o.module,
-		Force:      o.force,
-	}
+	opts.ToModule = o.module
 	// codegen.yaml は最後に書く。コピーが途中で失敗しても「初期化済み」にならず、そのまま再実行できる
-	if err := scaffold.CheckConfigAbsent(opts); err != nil {
-		return err
-	}
 	res, err := scaffold.Copy(opts)
 	if err != nil {
 		return err
