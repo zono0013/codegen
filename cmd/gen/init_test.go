@@ -110,6 +110,17 @@ func TestRun_InitDoesNotOverwrite(t *testing.T) {
 	}
 }
 
+func TestRun_InitChecksInitializedBeforeAsking(t *testing.T) {
+	// 初期化済みなら、module などを聞く（必要とする）前に止める。答えてから断られないように
+	root, codegen := newConsumer(t)
+	if err := os.WriteFile(filepath.Join(root, "codegen.yaml"), []byte("proto: proto\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runGen(t, "init", "-root", root, "-codegen", codegen); err == nil || !strings.Contains(err.Error(), "初期化済み") {
+		t.Errorf("err = %v, want 初期化済みというエラー", err)
+	}
+}
+
 func TestRun_InitRequiresModule(t *testing.T) {
 	root, codegen := newConsumer(t)
 	if _, err := runGen(t, "init", "-root", root, "-codegen", codegen); err == nil || !strings.Contains(err.Error(), "-module") {
