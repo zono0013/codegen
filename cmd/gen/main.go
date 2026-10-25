@@ -214,6 +214,7 @@ func runInit(root string, o initOptions, stdout io.Writer) error {
 	}
 
 	opts.ToModule = o.module
+
 	// codegen.yaml は最後に書く。コピーが途中で失敗しても「初期化済み」にならず、そのまま再実行できる
 	res, err := scaffold.Copy(opts)
 	if err != nil {
