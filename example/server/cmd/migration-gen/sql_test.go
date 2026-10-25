@@ -93,6 +93,17 @@ func TestEmitAlter_Identity(t *testing.T) {
 	}
 }
 
+func TestEmitAlter_DropIdentityBeforeTypeChange(t *testing.T) {
+	// IDENTITY は整数の列にしか付かないので、整数から文字列に変えるときは先に外す
+	from := columnSchema{Name: "id", SQLType: "bigint", PrimaryKey: true, NotNull: true, Identity: true}
+	to := columnSchema{Name: "id", SQLType: "text", PrimaryKey: true, NotNull: true}
+	sql := emitSQL(tableChange{Table: "tags", Kind: changeAlter, AlterColumns: []columnAlter{{Name: "id", From: from, To: to}}})
+	drop, typ := strings.Index(sql, "DROP IDENTITY"), strings.Index(sql, "TYPE text")
+	if drop < 0 || typ < 0 || drop > typ {
+		t.Errorf("DROP IDENTITY が型の変更より前に無い:\n%s", sql)
+	}
+}
+
 // connectTestSchema は MIGRATION_TEST_DATABASE_URL の Postgres につなぎ、テスト専用のスキーマを search_path にする。
 // URL が無ければテストを飛ばす（CI では Postgres を立てて実行する）。
 // 開発用の DB を指していても既存のテーブルを壊さないよう、スキーマはテストの終わりに消す。

@@ -85,9 +85,6 @@ type entity struct {
 	UniqueFieldsNonPK []field
 	PagingField       *field
 	HasDecimal        bool
-	// NeedsStrings / NeedsErrors は New<Entity> の検査が strings / errors を使うか（使わない import はコンパイルできない）
-	NeedsStrings bool
-	NeedsErrors  bool
 }
 
 type inputField struct {
@@ -357,9 +354,6 @@ func parseEntity(msg *protogen.Message) (*entity, error) {
 
 		e.Fields = append(e.Fields, spec)
 		e.HasDecimal = e.HasDecimal || spec.IsDecimal
-		// entity.gen.go.tpl の New<Entity> の検査と同じ条件
-		e.NeedsStrings = e.NeedsStrings || spec.IsRequired && spec.GoType == "string" || spec.IsEmail
-		e.NeedsErrors = e.NeedsErrors || e.NeedsStrings || spec.IsPK && spec.GoType == "string"
 		if spec.IsPK {
 			e.PKField = spec
 		}

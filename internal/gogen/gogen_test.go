@@ -122,31 +122,6 @@ message Tag {
 	}
 }
 
-func TestGenerate_EntityImportsOnlyWhatValidationUses(t *testing.T) {
-	// 使わない import があるとコンパイルできない
-	files := prototest.Generate(t, map[string]string{"tag/v1/tag.proto": `syntax = "proto3";
-package tag.v1;
-// @entity
-message Tag {
-  // @pk
-  int64 id = 1;
-  string name = 2;
-}
-`}, New(Params{ImportPath: "example.com/x/server"}))
-	src := files["internal/domain/entity/tag.gen.go"]
-	for _, unused := range []string{`"errors"`, `"strings"`} {
-		if strings.Contains(src, unused) {
-			t.Errorf("使わない %s を import している:\n%s", unused, src)
-		}
-	}
-
-	files = prototest.Generate(t, map[string]string{"shop/v1/shop.proto": testProto}, New(Params{ImportPath: "example.com/x/server"}))
-	src = files["internal/domain/entity/item.gen.go"]
-	if !strings.Contains(src, `"errors"`) || strings.Contains(src, `"strings"`) {
-		t.Errorf("文字列の主キーだけなら errors を使い、strings は使わない:\n%s", src)
-	}
-}
-
 func TestGenerate_StringPKIsRequired(t *testing.T) {
 	files := prototest.Generate(t, map[string]string{"shop/v1/shop.proto": testProto}, New(Params{ImportPath: "example.com/x/server"}))
 	if src := files["internal/domain/entity/item.gen.go"]; !strings.Contains(src, `if id == "" {`) {
