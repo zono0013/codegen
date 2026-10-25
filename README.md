@@ -19,6 +19,8 @@ make -C codegen proto-gen
 
 clone し直すときは `git clone --recursive`、または clone の後に `git submodule update --init`。
 
+すでに server や front があるプロジェクトに入れるときは、サンプルをコピーせずに `codegen.yaml` だけを書く。手順と注意点（出力先、Gin などのルーター、Postgres 以外の DB）は [`docs/adopting.md`](docs/adopting.md)。
+
 ### 使う側のリポジトリの形
 
 ```
@@ -108,6 +110,7 @@ cd ../front && pnpm install && pnpm dev            # 別ターミナルで FE（
 | --- | --- |
 | [`docs/spec.md`](docs/spec.md) | **自動生成の仕様（設定ファイル / コマンド / ランタイム / アノテーション / REST の振る舞い / OpenAPI / テスト方針）** |
 | [`docs/architecture.md`](docs/architecture.md) | 設計（層の構成・考え方・向き不向き・DB を変えたいとき） |
+| [`docs/adopting.md`](docs/adopting.md) | 既存のプロジェクトに導入する（出力先・ルーター・DB・API クライアント） |
 | [`example/server/CLAUDE.md`](example/server/CLAUDE.md) | BE の前提・規約（初回コピーされる） |
 | [`example/front/CLAUDE.md`](example/front/CLAUDE.md) | FE の前提・規約（同上） |
 | [`example/front/docs/`](example/front/docs/) | FSD 構成 / コーディング規約 / デザイントークン / テスト方針（同上） |
