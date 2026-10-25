@@ -25,7 +25,7 @@ func New{{.Name}}(
 {{- end}}
 ) (*{{.Name}}, error) {
 {{- range .Fields}}
-{{- if .IsPK}}
+{{- if and .IsPK (eq .GoType "string")}}
 	if {{.ParamName}} == "" {
 		return nil, errors.New("{{.SnakeName}} is required")
 	}
