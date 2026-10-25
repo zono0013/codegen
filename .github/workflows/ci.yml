@@ -154,6 +154,21 @@ jobs:
       - name: 生成物の検査
         working-directory: app
         run: make -C codegen proto-check
+      - name: server
+        working-directory: app/server
+        run: |
+          go build ./...
+          go vet ./...
+          go test ./...
+          make proto-gen
+      - name: front
+        working-directory: app/front
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm typecheck
+          pnpm lint
+          pnpm test --run
+          pnpm gen
       - name: サンプルに無い形の proto も生成してビルドできる（整数の主キー、検査の無い entity、文字列以外の path / query パラメータ）
         working-directory: app
         run: |
@@ -203,21 +218,9 @@ jobs:
           PROTO
           make -C codegen proto-gen
           make -C codegen proto-check
-      - name: server
-        working-directory: app/server
-        run: |
-          go build ./...
-          go vet ./...
-          go test ./...
-          make proto-gen
-      - name: front
-        working-directory: app/front
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm typecheck
-          pnpm lint
-          pnpm test --run
-          pnpm gen
+          # サービスが増えると手書きの配線（cmd/api の di.NewHandlers の引数）が合わなくなるので、生成物のパッケージだけを確かめる
+          cd server && go vet ./internal/... ./pkg/... ./cmd/migration-gen/
+          cd ../front && pnpm typecheck
       - name: Submodule の中が変わっていないこと（どの手順も codegen/ に書き込まない）
         working-directory: app
         run: |
