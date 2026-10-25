@@ -130,7 +130,7 @@ func diffTable(prev, curr *tableSchema) *tableChange {
 
 func columnEqual(a, b columnSchema) bool {
 	// Unique は別ハンドリング (AddUniqueCols / DropUniqueCols) なので等価判定からは外す。
-	return a.SQLType == b.SQLType && a.NotNull == b.NotNull && a.PrimaryKey == b.PrimaryKey
+	return a.SQLType == b.SQLType && a.NotNull == b.NotNull && a.PrimaryKey == b.PrimaryKey && a.Identity == b.Identity
 }
 
 func indexEqual(a, b indexSchema) bool {

@@ -100,3 +100,31 @@ func TestGenerate_RuntimeOnlyFromSources(t *testing.T) {
 		}
 	}
 }
+
+func TestGenerate_IntegerPK(t *testing.T) {
+	// 整数の主キーは DB が採番する（0 は「未採番」）ので、Entity の生成関数で空チェックしない
+	files := prototest.Generate(t, map[string]string{"tag/v1/tag.proto": `syntax = "proto3";
+package tag.v1;
+// @entity
+message Tag {
+  // @pk
+  int64 id = 1;
+  // @required
+  string name = 2;
+}
+`}, New(Params{ImportPath: "example.com/x/server"}))
+	src := files["internal/domain/entity/tag.gen.go"]
+	if strings.Contains(src, `id == ""`) {
+		t.Errorf("整数の主キーを文字列として検査している:\n%s", src)
+	}
+	if !strings.Contains(src, `name == ""`) {
+		t.Errorf("@required の検査が消えている:\n%s", src)
+	}
+}
+
+func TestGenerate_StringPKIsRequired(t *testing.T) {
+	files := prototest.Generate(t, map[string]string{"shop/v1/shop.proto": testProto}, New(Params{ImportPath: "example.com/x/server"}))
+	if src := files["internal/domain/entity/item.gen.go"]; !strings.Contains(src, `if id == "" {`) {
+		t.Errorf("文字列の主キーの空チェックが無い:\n%s", src)
+	}
+}

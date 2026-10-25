@@ -42,4 +42,9 @@ func NewUser(
 	}, nil
 }
 
-var _ = time.Time{}
+// 検査の無い entity でも import を使うため（どのフィールドが検査を持つかで import を変えない）
+var (
+	_ = time.Time{}
+	_ = errors.New
+	_ = strings.TrimSpace
+)
