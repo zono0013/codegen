@@ -104,7 +104,6 @@ func TestGenerate_RuntimeOnlyFromSources(t *testing.T) {
 func TestGenerate_IntegerPK(t *testing.T) {
 	// 整数の主キーは DB が採番する（0 は「未採番」）ので、Entity の生成関数で空チェックしない
 	files := prototest.Generate(t, map[string]string{"tag/v1/tag.proto": `syntax = "proto3";
-const typedParamsProto = `syntax = "proto3";
 package tag.v1;
 // @entity
 message Tag {
@@ -127,6 +126,15 @@ func TestGenerate_StringPKIsRequired(t *testing.T) {
 	files := prototest.Generate(t, map[string]string{"shop/v1/shop.proto": testProto}, New(Params{ImportPath: "example.com/x/server"}))
 	if src := files["internal/domain/entity/item.gen.go"]; !strings.Contains(src, `if id == "" {`) {
 		t.Errorf("文字列の主キーの空チェックが無い:\n%s", src)
+	}
+}
+
+const typedParamsProto = `syntax = "proto3";
+package tag.v1;
+// @entity
+message Tag {
+  // @pk
+  int64 id = 1;
 }
 message GetTagRequest {
   int64 id = 1;

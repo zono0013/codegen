@@ -154,7 +154,7 @@ jobs:
       - name: 生成物の検査
         working-directory: app
         run: make -C codegen proto-check
-      - name: サンプルに無い形の proto も生成してビルドできる（整数の主キー、検査の無い entity）
+      - name: サンプルに無い形の proto も生成してビルドできる（整数の主キー、検査の無い entity、文字列以外の path / query パラメータ）
         working-directory: app
         run: |
           mkdir -p proto/tag/v1
@@ -181,8 +181,28 @@ jobs:
             // @pk
             string code = 1;
           }
+          // 文字列以外の path / query パラメータ
+          message GetTagRequest {
+            int64 id = 1;
+            uint32 page = 2;
+            uint64 offset = 3;
+            bool archived = 4;
+          }
+          message GetTagResponse { Tag tag = 1; }
+          message DeleteBadgeRequest {
+            int32 id = 1;
+            bool force = 2;
+          }
+          message DeleteBadgeResponse {}
+          service TagService {
+            // @http GET /api/tags/{id}
+            rpc GetTag(GetTagRequest) returns (GetTagResponse);
+            // @http DELETE /api/badges/{id}/{force}
+            rpc DeleteBadge(DeleteBadgeRequest) returns (DeleteBadgeResponse);
+          }
           PROTO
           make -C codegen proto-gen
+          make -C codegen proto-check
       - name: server
         working-directory: app/server
         run: |
