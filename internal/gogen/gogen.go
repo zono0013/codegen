@@ -215,9 +215,12 @@ func generate(files []*protogen.File, params Params) (map[string][]byte, error) 
 			for _, m := range svc.Methods {
 				// rpc の request / response に entity そのものを使うと、request では主キーや @hidden のフィールドまで外から書け、
 				// response では @hidden のフィールドが出る（DTO を通らない）。rpc ごとの message で包む
-				for _, msg := range []*protogen.Message{m.Input, m.Output} {
-					if e, ok := entityByMsg[msg.Desc.FullName()]; ok {
-						return nil, fmt.Errorf("rpc %s: @entity %s is used directly as the request/response (define %sRequest / %sResponse messages)", m.GoName, e.Name, m.GoName, m.GoName)
+				for _, side := range []struct {
+					msg  *protogen.Message
+					name string
+				}{{m.Input, "request"}, {m.Output, "response"}} {
+					if e, ok := entityByMsg[side.msg.Desc.FullName()]; ok {
+						return nil, fmt.Errorf("rpc %s: @entity %s is used directly as the %s (define a %s%s message)", m.GoName, e.Name, side.name, m.GoName, strings.ToUpper(side.name[:1])+side.name[1:])
 					}
 				}
 				if path, name := entityInMessage(m.Input, entityByMsg, map[*protogen.Message]bool{}); name != "" {
