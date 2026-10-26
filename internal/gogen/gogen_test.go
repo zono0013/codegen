@@ -1,6 +1,7 @@
 package gogen
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
