@@ -21,9 +21,8 @@ review-merge サブエージェントのレビュー、CI と SonarQube、指摘
 
 ### 進め方
 
-- **Issue を先に立てる。** 見つかった問題は、直す前に Issue にする（`issue`）。1 つの Issue = 1 つの PR を基本にする
-- **main には直接 push しない**（ルールセットでも塞がれている）。必ずブランチ → PR
-- **振る舞いを変えるときは、テストを先に書いて落ちることを確かめてから実装する。** ジェネレータ・テンプレート・ランタイム（`internal/gogen/runtime/**/*.go.src`）・`example/proto` を変えたら `make proto-gen` で生成物も作り直してコミットする。生成物（`*.gen.*`）は手で編集しない
+- `CONTRIBUTING.md` の「変更の進め方」「コミットと Pull Request」に従う（Issue を先に立てる、ブランチ → PR、テストを先に書く、生成物を作り直してコミットする、スカッシュマージ）
+- 見つかった問題は、直す前に Issue にする（`issue`）。1 つの Issue = 1 つの PR を基本にする
 - **生成物がコンパイルできるかは、文字列のテストだけで済ませない。** Submodule E2E（`pr/scripts/e2e-local.py`）か、`example/` での `go vet` で確かめる
 - **一つの PR に一つの関心事。** 途中で別の問題を見つけたら、その PR に混ぜず Issue を立てる。ただし、その PR の変更そのものが原因の問題は同じ PR で直す
 
@@ -46,17 +45,14 @@ review-merge サブエージェントのレビュー、CI と SonarQube、指摘
 
 `review-merge` の条件を満たしたら、ユーザーに聞かずにマージしてよい（ユーザーから許可済み）。
 
-- サブエージェントのレビューで、マージを止める指摘が無い（指摘は対応するか、見送る理由を PR にコメントする）
-- CI の必須チェックがすべて通っている
-- SonarQube の Quality Gate が OK で、未解決の指摘が 0 件
-- スカッシュマージ。ブランチは消す
+条件の一覧は `review-merge` の「4. マージする」が正（サブエージェントのレビュー、`gh pr checks` がすべて pass、SonarQube、レビューのスレッドの解決）。
 
 ## 段階ごとの完了条件
 
 | 段階 | 次に進む条件 |
 | --- | --- |
 | issue | Issue の URL がある。大きな問題は、単独で直せる粒度に分かれている |
-| 実装 | 追加したテストが、修正前に落ち、修正後に通る。`go test ./...` と `example/server` の `go vet` / `go test` が通る |
+| 実装 | 追加したテストが、修正前に落ち、修正後に通る。`make test` と `make proto-check` が通る |
 | pr | PR が Issue に `Closes #N` で紐付いている。生成物・CI を変えたなら `e2e-local.py` が通っている |
 | review-merge | マージ済み。Issue が close されている |
 

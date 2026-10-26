@@ -6,6 +6,12 @@ pr="${1:?PR 番号を渡す}"
 project=zono0013_codegen
 api=https://sonarcloud.io/api
 
+# 解析がまだ終わっていない（fork からの PR では解析されない）と 404 になる
+code=$(curl -sS -o /dev/null -w '%{http_code}' "$api/qualitygates/project_status?projectKey=$project&pullRequest=$pr")
+if [ "$code" = 404 ]; then
+  echo "PR #$pr の解析がまだ無い（終わっていないか、fork からの PR で解析されない）"
+  exit 2
+fi
 curl -fsS "$api/qualitygates/project_status?projectKey=$project&pullRequest=$pr" | python3 -c '
 import json, sys
 d = json.load(sys.stdin)["projectStatus"]

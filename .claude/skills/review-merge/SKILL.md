@@ -34,7 +34,7 @@ gh pr checks <N> -R zono0013/codegen | grep -v pass           # 落ちたもの�
 .claude/skills/review-merge/scripts/sonar-status.sh <N>
 ```
 
-- SonarQube の解析（`SonarQube Cloud の解析`）は CI より後に終わることがある。`sonar-status.sh` が `Component ... not found` になるなら、まだ終わっていない
+- SonarQube の解析（`SonarQube Cloud の解析`）は CI より後に終わることがある。`sonar-status.sh` が「解析がまだ無い」と出したら（終了コード 2）、終わるのを待つ。fork からの PR は解析されない
 - **Quality Gate が落ちたら、まず新しいコードのカバレッジを見る**（しきい値 80%）。`sonar-status.sh` が、テストが通っていない行のあるファイルを出す。除外せず、テストを足して直す
   - Go のカバレッジはパッケージごと（`go test -coverprofile`）。あるパッケージのコードを別のパッケージのテストからしか通していないと、0% になる。そのパッケージ自身にテストを書く
 - 指摘（issue / ホットスポット）は直す。誤検知なら、SonarQube の画面で False Positive にするようユーザーに頼み、PR に理由を書く
@@ -51,8 +51,9 @@ gh pr checks <N> -R zono0013/codegen | grep -v pass           # 落ちたもの�
 条件（すべて満たしたら、ユーザーに聞かずにマージしてよい）:
 
 - [ ] サブエージェントのレビューに、マージを止める指摘が残っていない
-- [ ] CI の必須チェックがすべて `pass`
-- [ ] SonarQube の Quality Gate が `OK`、未解決の指摘が 0 件
+- [ ] `gh pr checks` が**すべて** `pass`（ルールセットの必須チェックだけでなく、Postgres のマイグレーション、govulncheck、pnpm audit、SonarQube の解析も含む）
+- [ ] SonarQube の Quality Gate が `OK`、未解決の指摘が 0 件、未確認のセキュリティホットスポットが 0 件
+- [ ] レビューのコメントのスレッドがすべて解決している（ルールセットで必須）
 
 ```bash
 gh pr merge <N> -R zono0013/codegen --squash --delete-branch
