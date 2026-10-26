@@ -2,7 +2,11 @@
 // DTO の JSON キー（rest）と生成 Go コード（gogen）が同じ規則で揃っている必要があるため 1 箇所に置く。
 package naming
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/jinzhu/inflection"
+)
 
 // ToSnake は "CreatedAt" → "created_at"。大文字の直前で区切るだけなので "URL" は "u_r_l" になる。
 func ToSnake(s string) string {
@@ -18,4 +22,10 @@ func ToSnake(s string) string {
 		}
 	}
 	return b.String()
+}
+
+// Plural は英語の複数形（"community" → "communities"、"person" → "people"）。語尾の単語だけを変える。
+// 複数形の規則は、GORM の既定の命名（schema.NamingStrategy）と同じ inflection に揃える。
+func Plural(s string) string {
+	return inflection.Plural(s)
 }

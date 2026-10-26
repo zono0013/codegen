@@ -289,8 +289,8 @@ func parseEntity(msg *protogen.Message) (*entity, error) {
 		Name:        name,
 		SnakeName:   snake,
 		LowerFirst:  lower,
-		Plural:      lower + "s",
-		SnakePlural: snake + "s",
+		Plural:      naming.Plural(lower),
+		SnakePlural: naming.Plural(snake),
 	}
 
 	for _, f := range msg.Fields {

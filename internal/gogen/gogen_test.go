@@ -298,3 +298,39 @@ message Device {
 		t.Errorf("DTO の JSON キーが last_api_call_at_unix になっていない:\n%s", dto)
 	}
 }
+
+func TestGenerate_TableNameIsEnglishPlural(t *testing.T) {
+	files := prototest.Generate(t, map[string]string{"community/v1/community.proto": `syntax = "proto3";
+package community.v1;
+// @entity
+message Community {
+  // @pk
+  string uuid = 1;
+}
+`}, New(Params{ImportPath: "example.com/x/server"}))
+	src := files["internal/domain/entity/community.gen.go"]
+	if !strings.Contains(src, `return "communities"`) {
+		t.Errorf("テーブル名が communities になっていない:\n%s", src)
+	}
+	if repo := files["internal/domain/repository/community_repository.gen.go"]; !strings.Contains(repo, "communities []*entity.Community") {
+		t.Errorf("Bulk 系の引数名が communities になっていない:\n%s", repo)
+	}
+}
+
+func TestGenerate_TableNameOfKeywordEntity(t *testing.T) {
+	// 予約語になる名前（type）でも、テーブル名は複数形、引数名は予約語を避けた形のまま（type_）
+	files := prototest.Generate(t, map[string]string{"kind/v1/kind.proto": `syntax = "proto3";
+package kind.v1;
+// @entity
+message Type {
+  // @pk
+  int64 id = 1;
+}
+`}, New(Params{ImportPath: "example.com/x/server"}))
+	if src := files["internal/domain/entity/type.gen.go"]; !strings.Contains(src, `return "types"`) {
+		t.Errorf("テーブル名が types になっていない:\n%s", src)
+	}
+	if repo := files["internal/domain/repository/type_repository.gen.go"]; !strings.Contains(repo, "type_ []*entity.Type") {
+		t.Errorf("Bulk 系の引数名が予約語を避けていない:\n%s", repo)
+	}
+}
