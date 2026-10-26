@@ -347,10 +347,11 @@ func parseEntity(msg *protogen.Message) (*entity, error) {
 		switch {
 		case spec.IsTimestamp:
 			spec.GoType = "time.Time"
-			base := strings.TrimSuffix(spec.GoName, "Unix")
-			spec.GoName = base
-			spec.ParamName = lowerFirst(base)
-			spec.SnakeName = naming.ToSnake(base)
+			// 正規化（LastAPICallAt）の前の名前から作る。正規化後の名前を snake_case にすると last_a_p_i_call_at になる
+			raw := strings.TrimSuffix(f.GoName, "Unix")
+			spec.GoName = normalizeInitialisms(raw)
+			spec.ParamName = lowerFirst(raw)
+			spec.SnakeName = naming.ToSnake(raw)
 		case spec.IsDecimal:
 			spec.GoType = listPrefix + "decimal.Decimal"
 		case slices.Contains([]string{"string", "int32", "int64", "bool"}, spec.ProtoType):
@@ -683,23 +684,32 @@ func goTypeFromKind(f *protogen.Field, entities map[protoreflect.FullName]*entit
 	}
 }
 
-var initialisms = []struct{ from, to string }{
-	{"Id", "ID"}, {"Url", "URL"}, {"Api", "API"}, {"Http", "HTTP"}, {"Json", "JSON"}, {"Xml", "XML"},
+// initialisms は Go の慣習で大文字で書く頭字語（golint / staticcheck の ST1003 と同じ一覧）。
+var initialisms = map[string]bool{
+	"ACL": true, "API": true, "ASCII": true, "CPU": true, "CSS": true, "DNS": true, "EOF": true, "GUID": true,
+	"HTML": true, "HTTP": true, "HTTPS": true, "ID": true, "IP": true, "JSON": true, "LHS": true, "QPS": true,
+	"RAM": true, "RHS": true, "RPC": true, "SLA": true, "SMTP": true, "SQL": true, "SSH": true, "TCP": true,
+	"TLS": true, "TTL": true, "UDP": true, "UI": true, "UID": true, "UUID": true, "URI": true, "URL": true,
+	"UTF8": true, "VM": true, "XML": true, "XMPP": true, "XSRF": true, "XSS": true,
 }
 
-// normalizeInitialisms は末尾の "Id" / "Url" などを Go の慣習どおり大文字にする（"AuthorId" → "AuthorID"）。
+// normalizeInitialisms は頭字語の単語を Go の慣習どおり大文字にする（"AuthorId" → "AuthorID"、"CommunityUuid" → "CommunityUUID"）。
+// 単語は大文字で始まり小文字・数字が続くまとまり（protogen の GoName は snake_case の各語を先頭だけ大文字にしたもの）。
 func normalizeInitialisms(s string) string {
-	for _, r := range initialisms {
-		if s == r.from {
-			return r.to
+	var b strings.Builder
+	for start := 0; start < len(s); {
+		end := start + 1
+		for end < len(s) && !(s[end] >= 'A' && s[end] <= 'Z') {
+			end++
 		}
-		if strings.HasSuffix(s, r.from) && len(s) > len(r.from) {
-			if prev := s[len(s)-len(r.from)-1]; prev >= 'a' && prev <= 'z' {
-				s = s[:len(s)-len(r.from)] + r.to
-			}
+		word := s[start:end]
+		if upper := strings.ToUpper(word); initialisms[upper] && word != upper {
+			word = upper
 		}
+		b.WriteString(word)
+		start = end
 	}
-	return s
+	return b.String()
 }
 
 // lowerFirst は引数名・変数名用。Go の予約語になる場合は "_" を付ける（"type" → "type_"）。
