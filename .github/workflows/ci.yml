@@ -176,6 +176,9 @@ jobs:
             int64 id = 1;
             // @required
             string name = 2;
+            // API に出さない列
+            // @hidden
+            bytes secret = 3;
           }
           // 検査が無い entity（errors / strings を import しない）
           // @entity

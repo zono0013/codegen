@@ -246,6 +246,9 @@ func (g *generator) messageSchema(m *protogen.Message) (string, error) {
 	props := mapping()
 	var required []*yaml.Node
 	for _, f := range m.Fields {
+		if isEntity && rest.IsHidden(f) {
+			continue
+		}
 		key := string(f.Desc.Name())
 		var s *yaml.Node
 		switch {

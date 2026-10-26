@@ -14,7 +14,8 @@ import (
 // json タグはここで一元管理する。entity 側は GORM タグのみ持つ。
 type {{.Name}}DTO struct {
 {{- range .Fields}}
-{{- if .IsTimestamp}}
+{{- if .IsHidden}}
+{{- else if .IsTimestamp}}
 	{{.GoName}}Unix int64 `json:"{{.SnakeName}}_unix"`
 {{- else}}
 	{{.GoName}} {{.GoType}} `json:"{{.SnakeName}}"`
@@ -30,7 +31,8 @@ func From{{.Name}}(e *entity.{{.Name}}) *{{.Name}}DTO {
 	}
 	return &{{.Name}}DTO{
 {{- range .Fields}}
-{{- if .IsTimestamp}}
+{{- if .IsHidden}}
+{{- else if .IsTimestamp}}
 		{{.GoName}}Unix: e.{{.GoName}}.Unix(),
 {{- else}}
 		{{.GoName}}: e.{{.GoName}},

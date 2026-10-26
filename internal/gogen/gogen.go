@@ -62,6 +62,7 @@ type field struct {
 	IsEmail          bool
 	IsRequired       bool
 	IsTimestamp      bool
+	IsHidden         bool // API に出さない（DTO から外す）
 	IsPaging         bool
 	IsList           bool
 	IsDecimal        bool
@@ -322,6 +323,7 @@ func parseEntity(msg *protogen.Message) (*entity, error) {
 			IsEmail:          annotation.HasMarker(comment, "@email"),
 			IsRequired:       annotation.HasMarker(comment, "@required"),
 			IsTimestamp:      annotation.HasMarker(comment, "@timestamp"),
+			IsHidden:         rest.IsHidden(f),
 			IsPaging:         isPaging,
 			IsList:           f.Desc.IsList(),
 			IsDecimal:        isDecimal,

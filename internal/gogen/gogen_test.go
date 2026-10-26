@@ -334,3 +334,35 @@ message Type {
 		t.Errorf("Bulk 系の引数名が予約語を避けていない:\n%s", repo)
 	}
 }
+
+func TestGenerate_HiddenFieldNotInDTO(t *testing.T) {
+	// @hidden のフィールドは DB の列（entity）には残し、API に返す DTO からは外す
+	files := prototest.Generate(t, map[string]string{"user/v1/user.proto": `syntax = "proto3";
+package user.v1;
+// @entity
+message User {
+  // @pk
+  string uuid = 1;
+  string email = 2;
+  // bcrypt のハッシュ
+  // @hidden
+  bytes password = 3;
+}
+message GetUserRequest { string uuid = 1; }
+message GetUserResponse { User user = 1; }
+service UserService {
+  // @http GET /api/users/{uuid}
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+}
+`}, New(Params{ImportPath: "example.com/x/server"}))
+	if ent := files["internal/domain/entity/user.gen.go"]; !strings.Contains(ent, "column:password") {
+		t.Errorf("entity から password の列が消えた:\n%s", ent)
+	}
+	dto := files["internal/dto/user.gen.go"]
+	if strings.Contains(dto, "Password") || strings.Contains(dto, "password") {
+		t.Errorf("DTO に password が出ている:\n%s", dto)
+	}
+	if !strings.Contains(dto, "Email") {
+		t.Errorf("DTO から @hidden 以外のフィールドまで消えた:\n%s", dto)
+	}
+}

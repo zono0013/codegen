@@ -146,6 +146,7 @@ codegen（このリポジトリ）のルートで実行する。Submodule とし
 | `@email` | field | email 形式バリデーション。Zod は `.email()`、OpenAPI は `format: email` |
 | `@timestamp` | `int64` field | Entity では `time.Time`（名前の `Unix` を除く）。DTO / JSON では `<name>_unix`（Unix 秒） |
 | `@decimal(p,s)` | `string` field | Entity / DTO で `decimal.Decimal`、DB は `numeric(p,s)`、JSON は文字列。`@pk` などとは併用不可 |
+| `@hidden` | entity の field | API に出さない（パスワードのハッシュなど）。Entity（DB の列）には残し、DTO・TS の Zod スキーマ・OpenAPI の schema から外す |
 | `@http METHOD /path` | rpc | REST のルート（`GET` / `POST` / `PUT` / `PATCH` / `DELETE`）。`{name}` は path param。**無い rpc は Handler も FE 関数も OpenAPI も作らない**。FE から呼ぶ rpc のパスは `/api/` で始める（example/front は `/api/*` だけをバックエンドに転送する） |
 
 ```proto

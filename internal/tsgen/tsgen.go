@@ -184,7 +184,11 @@ func schemaFile(d *domain, domains map[string]*domain) string {
 			if len(msg.Fields) == 0 {
 				lines = append(lines, "  // empty message")
 			}
+			isEntity := rest.IsEntity(msg)
 			for _, f := range msg.Fields {
+				if isEntity && rest.IsHidden(f) {
+					continue
+				}
 				lines = append(lines, "  "+string(f.Desc.Name())+": "+zodType(f)+",")
 			}
 			lines = append(lines, "})")

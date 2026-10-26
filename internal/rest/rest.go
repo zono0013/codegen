@@ -117,6 +117,12 @@ func IsQueryable(f *protogen.Field) bool {
 	return false
 }
 
+// IsHidden は API に出さない entity のフィールド（@hidden）かを返す。DB の列（entity）には残し、
+// DTO・TS・OpenAPI からは外す。
+func IsHidden(f *protogen.Field) bool {
+	return annotation.HasMarker(string(f.Comments.Leading), "@hidden")
+}
+
 // DTOFieldName は Handler が返す DTO（gogen の dto テンプレート）での JSON キーを返す。
 // @timestamp は entity 上 time.Time だが、DTO では "<name>_unix" の int64 に戻す。
 func DTOFieldName(f *protogen.Field) string {
