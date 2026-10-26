@@ -206,7 +206,8 @@ message M {
 	for _, f := range files[0].Messages[0].Fields {
 		got = append(got, DTOFieldName(f))
 	}
-	if want := []string{"author_id", "author_name", "created_at_unix"}; !slices.Equal(got, want) {
+	// proto のフィールド名をそのまま使う（TS と同じ）。entity では lower_snake_case でない名前は gogen がエラーにする
+	if want := []string{"author_id", "authorName", "created_at_unix"}; !slices.Equal(got, want) {
 		t.Errorf("DTOFieldName = %v, want %v", got, want)
 	}
 }

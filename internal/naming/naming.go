@@ -8,21 +8,27 @@ import (
 	"github.com/jinzhu/inflection"
 )
 
-// ToSnake は "CreatedAt" → "created_at"。大文字の直前で区切るだけなので "URL" は "u_r_l" になる。
+// ToSnake は Go の名前を snake_case にする（"CreatedAt" → "created_at"、"HTTPLog" → "http_log"）。
+// 大文字の並び（頭字語）は 1 語として扱う（GORM の既定の命名と同じ）。message 名・service 名（テーブル名・ファイル名）に使う。
+// フィールドの列名・JSON のキーは proto のフィールド名をそのまま使うので、これは通さない。
 func ToSnake(s string) string {
 	var b strings.Builder
-	for i, r := range s {
-		if i > 0 && r >= 'A' && r <= 'Z' {
-			b.WriteByte('_')
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if isUpper(c) {
+			// 小文字・数字の後、または大文字の並びの最後（次が小文字）で区切る（"HTTPLog" の "L" の前）
+			if i > 0 && (!isUpper(s[i-1]) || i+1 < len(s) && isLower(s[i+1])) && s[i-1] != '_' {
+				b.WriteByte('_')
+			}
+			c += 'a' - 'A'
 		}
-		if r >= 'A' && r <= 'Z' {
-			b.WriteRune(r + 32)
-		} else {
-			b.WriteRune(r)
-		}
+		b.WriteByte(c)
 	}
 	return b.String()
 }
+
+func isUpper(c byte) bool { return c >= 'A' && c <= 'Z' }
+func isLower(c byte) bool { return c >= 'a' && c <= 'z' }
 
 // Plural は英語の複数形（"community" → "communities"、"person" → "people"）。語尾の単語だけを変える。
 // 複数形の規則は、GORM の既定の命名（schema.NamingStrategy）と同じ inflection に揃える。

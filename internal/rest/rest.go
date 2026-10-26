@@ -11,7 +11,6 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/zono0013/codegen/internal/annotation"
-	"github.com/zono0013/codegen/internal/naming"
 )
 
 // IsEntity は @entity が付き、かつ @pk フィールドを持つ message かを返す。
@@ -126,8 +125,9 @@ func IsHidden(f *protogen.Field) bool {
 // DTOFieldName は Handler が返す DTO（gogen の dto テンプレート）での JSON キーを返す。
 // @timestamp は entity 上 time.Time だが、DTO では "<name>_unix" の int64 に戻す。
 func DTOFieldName(f *protogen.Field) string {
+	name := string(f.Desc.Name())
 	if annotation.HasMarker(string(f.Comments.Leading), "@timestamp") {
-		return naming.ToSnake(strings.TrimSuffix(f.GoName, "Unix")) + "_unix"
+		return strings.TrimSuffix(name, "_unix") + "_unix"
 	}
-	return naming.ToSnake(f.GoName)
+	return name
 }

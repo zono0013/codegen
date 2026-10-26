@@ -14,6 +14,7 @@ import (
 	"maps"
 	"net/http"
 	"path"
+	"regexp"
 	"slices"
 	"strings"
 	"text/template"
@@ -333,7 +334,7 @@ func parseEntity(msg *protogen.Message) (*entity, error) {
 		spec := field{
 			GoName:           normalizeInitialisms(f.GoName),
 			ParamName:        lowerFirst(f.GoName),
-			SnakeName:        naming.ToSnake(f.GoName),
+			SnakeName:        string(f.Desc.Name()),
 			ProtoType:        protoType,
 			IsPK:             annotation.HasMarker(comment, "@pk"),
 			IsUnique:         annotation.HasMarker(comment, "@unique"),
@@ -355,6 +356,11 @@ func parseEntity(msg *protogen.Message) (*entity, error) {
 		// time.Time を引数に取る SelectBy / SelectByCursor は生成していない（repository が time を import しない）
 		if spec.IsTimestamp && (spec.IsPK || spec.IsUnique || isPaging) {
 			return nil, fmt.Errorf("message %s: field %q: @timestamp cannot be combined with @pk/@unique/@paging", name, f.GoName)
+		}
+		// 列名・DTO の JSON のキーは proto のフィールド名をそのまま使う（TS・OpenAPI と同じ）。Go の名前から作り直すと、
+		// 頭字語や camelCase の名前で TS とずれる
+		if !lowerSnake.MatchString(string(f.Desc.Name())) {
+			return nil, fmt.Errorf("message %s: field %q: @entity field names must be lower_snake_case", name, f.Desc.Name())
 		}
 		if spec.IsDecimal {
 			if spec.ProtoType != "string" {
@@ -387,7 +393,7 @@ func parseEntity(msg *protogen.Message) (*entity, error) {
 			raw := strings.TrimSuffix(f.GoName, "Unix")
 			spec.GoName = normalizeInitialisms(raw)
 			spec.ParamName = lowerFirst(raw)
-			spec.SnakeName = naming.ToSnake(raw)
+			spec.SnakeName = strings.TrimSuffix(string(f.Desc.Name()), "_unix")
 		case spec.IsDecimal:
 			spec.GoType = listPrefix + "decimal.Decimal"
 		default:
@@ -731,6 +737,8 @@ func describeType(f *protogen.Field) string {
 	}
 	return f.Desc.Kind().String()
 }
+
+var lowerSnake = regexp.MustCompile(`^[a-z][a-z0-9]*(_[a-z0-9]+)*$`)
 
 // entityScalarGoType は Entity のフィールドの Go 型。Input / Output（goTypeFromKind）と同じ型にする。
 // enum・message は DB の列にどう載せるかが決まっていないので対応しない。
