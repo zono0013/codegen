@@ -17,6 +17,7 @@ description: codegen の変更をコミットし、Pull Request を出す。ブ�
 ## 2. 出す前の確認
 
 ```bash
+test -z "$(gofmt -l cmd internal example/server)"   # CI の codegen ジョブと同じ（スクリプトで Go を書き換えたときに崩れやすい）
 make test          # ジェネレータと example/server（-count=1 でキャッシュを使わない）
 make proto-check   # example/ の生成物が最新か
 ```
@@ -33,6 +34,7 @@ make proto-check   # example/ の生成物が最新か
 ```
 
 - `uses:` のステップは飛ばすので、Go / Node / pnpm はローカルのものを使う。CI は PR を main にマージしたコミットを試すので、main が進んでいたら rebase してから流す
+- rebase で衝突を解いたら、`git rebase --continue` の前に `go test ./...` を通す（テストのファイルの末尾にそれぞれが足した関数を残すとき、import が抜けやすい）
 - 失敗したら、表示された作業ディレクトリで原因を見る。先の PR に依存している失敗（その修正がまだ main に無い）なら、先の PR のマージを待って rebase する
 - 作業ディレクトリ（1 回で 700MB ほど）は消さずに残る。見終わったら `rm -rf` する
 - ci.yml に、スクリプトが扱えない書き方（`env:` や `${{ }}` など）を足したら、スクリプトがエラーで止まる。そのときはスクリプトも直す
