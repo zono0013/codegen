@@ -190,13 +190,15 @@ Handler・FE の型・OpenAPI は、この規則を `internal/rest` から取る
 | `GET` / `DELETE` | `{name}` → フィールドの型（string / 整数 / bool）に変換する。変換できなければ 400 | query string。読めるのは scalar だけ（repeated / map / message は無視）。整数 / bool は読めなければゼロ値 |
 | `POST` / `PUT` / `PATCH` | 同上 | JSON body |
 
+**Entity の型**: scalar は Input / Output と同じ Go の型にする（`sint32` / `sfixed32` → `int32`、`uint32` / `fixed32` → `uint32`、`float` → `float32`、`double` → `float64`、`bytes` → `[]byte` など）。DB の列は Postgres に符号なしの型が無いので、`uint32` / `uint64` は `bigint`（`uint64` は 2^63 以上の値を入れられない）。`repeated` は `jsonb`。
+
 **JSON の型**: `encoding/json` 基準（protojson ではない）。int64 も数値、キーは proto のフィールド名（snake_case）。
 
 **Go の名前**: フィールドは protoc-gen-go と同じ名前にし、頭字語の単語（`ID` / `UUID` / `URL` / `API` / `IP` など。golint の一覧と同じ）を大文字にする（`community_uuid` → `CommunityUUID`、`user_id_list` → `UserIDList`）。
 
 **未対応**（今は検出されずに壊れた出力になるので、使う前に対応が必要）:
 
-- entity の `string` / `int32` / `int64` / `bool` 以外の scalar、enum、nested message、別パッケージの message
+- entity の enum・message のフィールド（生成のときにエラーにする）、nested message、別パッケージの message
 - string / 整数 / bool 以外（float / double / bytes / enum など）の path param
 - request の body の直下に entity を含める（Go の Input は entity の型で受けるので、JSON のキーが DTO・OpenAPI・TS と合わない。非 entity message の中の entity は DTO で受ける）
 - FE の GET 関数は、path 以外の全フィールドを query に載せる型になっている（Handler は scalar しか読まない）

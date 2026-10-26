@@ -366,10 +366,12 @@ func parseEntity(msg *protogen.Message) (*entity, error) {
 			spec.SnakeName = naming.ToSnake(raw)
 		case spec.IsDecimal:
 			spec.GoType = listPrefix + "decimal.Decimal"
-		case slices.Contains([]string{"string", "int32", "int64", "bool"}, spec.ProtoType):
-			spec.GoType = listPrefix + spec.ProtoType
 		default:
-			spec.GoType = listPrefix + "string"
+			goType, ok := entityScalarGoType(f.Desc.Kind())
+			if !ok {
+				return nil, fmt.Errorf("message %s: field %q: %s is not supported in @entity (use a scalar type)", name, f.GoName, spec.ProtoType)
+			}
+			spec.GoType = listPrefix + goType
 		}
 
 		e.Fields = append(e.Fields, spec)
@@ -650,6 +652,32 @@ func scalarParse(goType string) (format, conv string) {
 		return "strconv.ParseUint(%s, 10, 64)", ""
 	}
 	return "", ""
+}
+
+// entityScalarGoType は Entity のフィールドの Go 型。Input / Output（goTypeFromKind）と同じ型にする。
+// enum・message は DB の列にどう載せるかが決まっていないので対応しない。
+func entityScalarGoType(k protoreflect.Kind) (string, bool) {
+	switch k {
+	case protoreflect.StringKind:
+		return "string", true
+	case protoreflect.BoolKind:
+		return "bool", true
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+		return "int32", true
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+		return "int64", true
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+		return "uint32", true
+	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return "uint64", true
+	case protoreflect.FloatKind:
+		return "float32", true
+	case protoreflect.DoubleKind:
+		return "float64", true
+	case protoreflect.BytesKind:
+		return "[]byte", true
+	}
+	return "", false
 }
 
 func goTypeFromKind(f *protogen.Field, entities map[protoreflect.FullName]*entity) string {

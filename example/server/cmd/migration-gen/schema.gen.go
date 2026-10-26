@@ -133,7 +133,9 @@ func pgType(f *schema.Field) string {
 		}
 		return "bigint"
 	case schema.Uint:
-		if f.Size <= 32 && f.Size > 0 {
+		// Postgres に符号なしの型は無い。uint32 は integer（最大 2^31-1）に収まらないので bigint にする。
+		// uint64 も bigint にする（2^63 以上の値は入らない）
+		if f.Size <= 16 && f.Size > 0 {
 			return "integer"
 		}
 		return "bigint"

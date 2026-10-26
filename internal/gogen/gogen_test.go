@@ -398,3 +398,57 @@ message Acct {
 		})
 	}
 }
+
+func TestGenerate_EntityScalarTypes(t *testing.T) {
+	// Entity のフィールドは Input / Output と同じ Go の型にする（以前は対応外の型が黙って string になっていた）
+	files := prototest.Generate(t, map[string]string{"metric/v1/metric.proto": `syntax = "proto3";
+package metric.v1;
+// @entity
+message Metric {
+  // @pk
+  int64 id = 1;
+  sint32 a = 2;
+  sfixed64 b = 3;
+  uint32 c = 4;
+  fixed64 d = 5;
+  float e = 6;
+  double f = 7;
+  bytes g = 8;
+  repeated uint32 h = 9;
+}
+`}, New(Params{ImportPath: "example.com/x/server"}))
+	flat := strings.Join(strings.Fields(files["internal/domain/entity/metric.gen.go"]), " ")
+	for _, want := range []string{
+		"A int32 `", "B int64 `", "C uint32 `", "D uint64 `", "E float32 `", "F float64 `", "G []byte `", "H []uint32 `",
+	} {
+		if !strings.Contains(flat, want) {
+			t.Errorf("%q が無い:\n%s", want, flat)
+		}
+	}
+}
+
+func TestNew_RejectsUnsupportedEntityFieldTypes(t *testing.T) {
+	// 対応していない型は、黙って string にせずエラーにする
+	for name, field := range map[string]string{
+		"enum":    "Kind kind = 2;",
+		"message": "Meta meta = 2;",
+	} {
+		t.Run(name, func(t *testing.T) {
+			src := `syntax = "proto3";
+package metric.v1;
+enum Kind { KIND_UNSPECIFIED = 0; }
+message Meta { string note = 1; }
+// @entity
+message Metric {
+  // @pk
+  int64 id = 1;
+  ` + field + `
+}
+`
+			_, err := New(Params{ImportPath: "example.com/x/server"})(prototest.Files(t, map[string]string{"metric/v1/metric.proto": src}))
+			if err == nil || !strings.Contains(err.Error(), "Metric") {
+				t.Errorf("err = %v, want 対応していない型のエラー（どの message のどのフィールドか）", err)
+			}
+		})
+	}
+}

@@ -187,6 +187,19 @@ jobs:
             int32 id = 1;
             string label = 2;
           }
+          // Input / Output と同じ型になる scalar
+          // @entity
+          message Metric {
+            // @pk
+            int64 id = 1;
+            sint32 a = 2;
+            uint32 b = 3;
+            fixed64 c = 4;
+            float d = 5;
+            double e = 6;
+            bytes f = 7;
+            repeated uint32 g = 8;
+          }
           // 主キーだけの entity（errors だけを使う）
           // @entity
           message Color {
