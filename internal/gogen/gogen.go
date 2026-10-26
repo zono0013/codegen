@@ -134,15 +134,15 @@ type outputType struct {
 }
 
 type service struct {
-	ServiceName       string
-	HandlerTypeName   string
-	UsecaseTypeName   string
-	UsecaseParamName  string
-	Methods           []method
-	AnyReturnsEntity  bool
-	NeedsDTO          bool // usecase の型が dto を参照するか（entity を返す rpc、Output や非 entity message の中の entity）
-	NonEntityTypes    []outputType
-	NeedsStrconv      bool
+	ServiceName      string
+	HandlerTypeName  string
+	UsecaseTypeName  string
+	UsecaseParamName string
+	Methods          []method
+	AnyReturnsEntity bool
+	NeedsDTO         bool // usecase の型が dto を参照するか（entity を返す rpc、Output や非 entity message の中の entity）
+	NonEntityTypes   []outputType
+	NeedsStrconv     bool
 }
 
 var statusConst = map[int]string{

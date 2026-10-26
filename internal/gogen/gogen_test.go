@@ -481,11 +481,11 @@ func TestNew_RejectsEntityInRequest(t *testing.T) {
 	// request の entity は、主キーや @hidden のフィールドまで外から書けてしまう（一括代入）。
 	// request は scalar を並べて書く
 	for name, req := range map[string]string{
-		"直下":         "message SaveRequest { Item item = 1; }",
-		"repeated":   "message SaveRequest { repeated Item items = 1; }",
-		"map の値":     "message SaveRequest { map<string, Item> items = 1; }",
+		"直下":          "message SaveRequest { Item item = 1; }",
+		"repeated":    "message SaveRequest { repeated Item items = 1; }",
+		"map の値":      "message SaveRequest { map<string, Item> items = 1; }",
 		"非 entity の中": "message Wrap { Item item = 1; }\nmessage SaveRequest { Wrap wrap = 1; }",
-		"相互再帰の中":    "message A { B b = 1; }\nmessage B { A a = 1; Item item = 2; }\nmessage SaveRequest { A a = 1; }",
+		"相互再帰の中":      "message A { B b = 1; }\nmessage B { A a = 1; Item item = 2; }\nmessage SaveRequest { A a = 1; }",
 	} {
 		t.Run(name, func(t *testing.T) {
 			src := `syntax = "proto3";
