@@ -10,7 +10,7 @@ body:
     attributes:
       label: どこの不具合か
       options:
-        - ジェネレータ（make proto-gen / proto-check / codegen-init）
+        - ジェネレータ（make proto-gen / proto-check / proto-clean）
         - 生成される Go のコード（server）
         - 生成される TypeScript のコード（front）
         - 生成される OpenAPI

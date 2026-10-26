@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 
 .DEFAULT_GOAL := help
-.PHONY: help proto-gen proto-check proto-clean codegen-init test
+.PHONY: help proto-gen proto-check proto-clean test
 
 # 生成先のプロジェクトのルート。Submodule として取り込まれていれば親リポジトリのルート、
 # 単体ならサンプル（example/）。ROOT=... で上書きできる。
@@ -24,11 +24,6 @@ proto-check: ## 生成物が proto・ジェネレータと一致し、OpenAPI �
 
 proto-clean: ## 生成物を全部削除（1 行目に生成マーカーを持つファイルだけ）
 	go run ./cmd/gen clean -root "$(ROOT)"
-
-codegen-init: ## Submodule として取り込んだ側で初回だけ実行: サンプルをコピーし codegen.yaml を作って生成（MODULE=<server の Go module> TITLE=<API 名>）
-	@if [ -z "$(SUPERPROJECT)" ] && [ "$(origin ROOT)" != "command line" ]; then \
-		echo "codegen-init は codegen を Submodule として取り込んだリポジトリで実行する（make -C codegen codegen-init MODULE=...）"; exit 1; fi
-	go run ./cmd/gen init -root "$(ROOT)" -codegen . $(if $(MODULE),-module "$(MODULE)") $(if $(TITLE),-title "$(TITLE)")
 
 test: ## ジェネレータのテスト（example/ の生成物が最新かも含む）と、生成したランタイムを含む example/server のビルド・テスト
 	go test -count=1 ./...

@@ -6,40 +6,66 @@ proto を唯一のソースにして **Go バックエンド + Next.js フロン
 
 ## 使い方（Submodule として取り込む）
 
+codegen が置くのは生成物（`*.gen.*`）だけ。サンプルのコピーや雛形の作成はしない。
+
 ```bash
 # 1. 使う側のリポジトリに codegen/ として取り込む
 git submodule add https://github.com/zono0013/codegen codegen
 
-# 2. 初回だけ: サンプル（example/）をコピーし、codegen.yaml を作って生成する
-make -C codegen codegen-init MODULE=github.com/you/app/server TITLE="App API"
+# 2. ルートに codegen.yaml を書く（下の例をコピー）
 
-# 3. あとは proto を書いて生成する
+# 3. server の Go module を作る（生成物の import path は go.mod から決まる）
+mkdir -p server && (cd server && go mod init github.com/you/app/server)
+
+# 4. proto/ に proto を書いて生成し、生成物が使うライブラリを go.mod に入れる
 make -C codegen proto-gen
+(cd server && go mod tidy)
+```
+
+```yaml
+# codegen.yaml（パスはすべてこのファイルからの相対。仕様は codegen/docs/spec.md）
+proto: proto
+targets:
+  server:
+    out: server
+  front:
+    out: front/generate
+    client: "@/shared/api/apiClient"   # 生成した API 関数が import する apiClient（front 側で用意する）
+  openapi:
+    out: docs/openapi
+    title: My API
+    version: 0.1.0
 ```
 
 clone し直すときは `git clone --recursive`、または clone の後に `git submodule update --init`。
 
-すでに server や front があるプロジェクトに入れるときは、サンプルをコピーせずに `codegen.yaml` だけを書く。手順と注意点（出力先、Gin などのルーター、Postgres 以外の DB）は [`docs/adopting.md`](docs/adopting.md)。
+### 生成物の外で用意するもの
+
+生成物は次のものを前提にしている。どれもプロジェクトの方針を含むので、生成せず使う側で書く。書き方は `example/` が見本になる（そのまま写してもよい）。
+
+| 何 | 見本 |
+| --- | --- |
+| server の go.mod（`go` は 1.22 以上。生成する Handler は Go 1.22 の ServeMux のパターンで登録する） | `example/server/go.mod` |
+| `main`：DB を開いて `tx.Init(db)`、Repository → Service → Usecase → `di.NewHandlers` と組み立て、`Register(mux)` で ServeMux に登録する | `example/server/cmd/api/main.go` |
+| Service と Usecase の実装（生成された Usecase interface を実装する） | `example/server/internal/domain/service/`、`example/server/internal/usecase/` |
+| マイグレーションの適用（`go run ./cmd/migration-gen` が SQL を作る。適用は golang-migrate など） | `example/server/Makefile` |
+| front の apiClient（`codegen.yaml` の `targets.front.client` で指定。axios のインスタンスがそのまま使える）と `zod` | `example/front/shared/api/apiClient.ts` |
+
+既存のアプリを置き換えるときも、既存のコードには混ぜず、同じリポジトリの別のディレクトリ（`v2/` など）に別のアプリとして作る。そのディレクトリに `codegen.yaml` を置き、`make -C codegen proto-gen ROOT=$PWD/v2` で生成する。
 
 ### 使う側のリポジトリの形
 
 ```
 my-app/
 ├── codegen/          ← Submodule（このリポジトリ）。中には書き込まない
-├── codegen.yaml      ← 生成の設定（codegen-init が作る）
+├── codegen.yaml      ← 生成の設定（手で書く）
 ├── proto/            ← 手書き。唯一のソース
-├── server/           ← 初回コピー（手書き層）+ 毎回生成（**/*.gen.go）
-├── front/            ← 初回コピー（画面）+ 毎回生成（generate/**/*.gen.ts）
+├── server/           ← 手書き（main、Service / Usecase 実装）+ 毎回生成（**/*.gen.go）
+├── front/            ← 手書き（画面、apiClient）+ 毎回生成（generate/**/*.gen.ts）
 └── docs/openapi/     ← 毎回生成（**/*.gen.yaml）
 ```
 
-ファイルは次の 3 種類に分かれる。
-
-| 種類 | 何か | codegen を更新したとき |
-| --- | --- | --- |
-| **毎回生成** | `*.gen.*`。`make proto-gen` のたびに書き出す。手で編集しない | Submodule を上げて `make -C codegen proto-gen` すると追従する |
-| **初回コピー** | `codegen-init` が `example/` からコピーしたもの（`main.go`、Service / Usecase 実装、画面、Makefile、Dockerfile など）。その後は使う側のもの | 上書きしない |
-| **参照** | `codegen/` の中をそのまま読むもの（`docs/spec.md`、`docs/architecture.md`） | Submodule を上げれば変わる |
+`*.gen.*` は `make proto-gen` のたびに書き出す。手で編集しない。Submodule を上げて `make -C codegen proto-gen` すると、codegen の更新に追従する。それ以外のファイルは codegen が触らない。
 
 **何が生成されるか**（ファイルごとの役割、アノテーション、REST の振る舞い、OpenAPI の構成、ランタイム）は [`docs/spec.md`](docs/spec.md) にまとめてある（正本）。`example/` の `*.gen.*` が実際の出力例。
 
@@ -50,9 +76,9 @@ proto を編集
    ↓
 make -C codegen proto-gen          # BE / FE / OpenAPI の生成物を作り直す
    ↓
-cd server && make migration-gen    # entity の差分から up SQL を生成
+cd server && go run ./cmd/migration-gen   # entity の差分から up SQL を生成
    ↓
-make migrate-up                    # DB に適用
+migrate -path migrations -database "$DATABASE_URL" up   # DB に適用（golang-migrate）
    ↓
 コンパイルエラーになった手書き層（Service / Usecase 実装 / 画面）を直す
 ```
@@ -65,7 +91,6 @@ proto を変えると生成物が変わり、それを使う手書き層がコ�
 
 | コマンド | 内容 |
 | --- | --- |
-| `make codegen-init MODULE=<module> [TITLE=<API 名>]` | 初回だけ。サンプルをコピーし、`codegen.yaml` を作って生成する。既にあるファイルは上書きしない。`codegen.yaml` があると「初期化済み」で止まる（作り直すなら `go run ./cmd/gen init -force ...`） |
 | `make proto-gen` | BE + FE + OpenAPI を生成（古い生成物は削除） |
 | `make proto-check` | 生成物が最新か、OpenAPI が妥当かつサーバーの実ルートと一致するかを検査（ファイルには触れない） |
 | `make proto-clean` | 生成物を削除 |
@@ -73,18 +98,18 @@ proto を変えると生成物が変わり、それを使う手書き層がコ�
 
 ## スキーマ適用
 
-`AutoMigrate` は **起動時に呼ばない**。`make migration-gen` が entity の gorm タグから差分 SQL を吐き、`golang-migrate` で適用する一本道にしてある（GORM と生成する SQL で制約の命名が違い、混ぜると制約の状態が食い違うため）。生成される `AutoMigrate<Entity>` ヘルパーは integration test 用。
+`AutoMigrate` は **起動時に呼ばない**。`go run ./cmd/migration-gen`（example では `make migration-gen`）が entity の gorm タグから差分 SQL を吐き、`golang-migrate` で適用する一本道にしてある（GORM と生成する SQL で制約の命名が違い、混ぜると制約の状態が食い違うため）。生成される `AutoMigrate<Entity>` ヘルパーは integration test 用。
 
 ## このリポジトリの構成
 
 ```
 codegen/
-├── cmd/gen/                # CLI（generate / check / clean / init）
+├── cmd/gen/                # CLI（generate / check / clean）
 ├── internal/               # ジェネレータ本体（Go / TS / OpenAPI）、テンプレート、ランタイムの元
 ├── docs/
 │   ├── spec.md             # 自動生成の仕様（正本）
 │   └── architecture.md     # 設計（層の構成・考え方・向き不向き・DB を変えたいとき）
-├── example/                # サンプルアプリ（記事投稿: Article + User）。codegen-init のコピー元
+├── example/                # サンプルアプリ（記事投稿: Article + User）。生成結果の見本と CI の検証用
 │   ├── codegen.yaml
 │   ├── proto/
 │   ├── server/             # Go (DDD + クリーンアーキテクチャ + REST)
@@ -110,10 +135,9 @@ cd ../front && pnpm install && pnpm dev            # 別ターミナルで FE（
 | --- | --- |
 | [`docs/spec.md`](docs/spec.md) | **自動生成の仕様（設定ファイル / コマンド / ランタイム / アノテーション / REST の振る舞い / OpenAPI / テスト方針）** |
 | [`docs/architecture.md`](docs/architecture.md) | 設計（層の構成・考え方・向き不向き・DB を変えたいとき） |
-| [`docs/adopting.md`](docs/adopting.md) | 既存のプロジェクトに導入する（出力先・ルーター・DB・API クライアント） |
-| [`example/server/CLAUDE.md`](example/server/CLAUDE.md) | BE の前提・規約（初回コピーされる） |
-| [`example/front/CLAUDE.md`](example/front/CLAUDE.md) | FE の前提・規約（同上） |
-| [`example/front/docs/`](example/front/docs/) | FSD 構成 / コーディング規約 / デザイントークン / テスト方針（同上） |
+| [`example/server/CLAUDE.md`](example/server/CLAUDE.md) | example の BE の前提・規約 |
+| [`example/front/CLAUDE.md`](example/front/CLAUDE.md) | example の FE の前提・規約 |
+| [`example/front/docs/`](example/front/docs/) | example の FSD 構成 / コーディング規約 / デザイントークン / テスト方針 |
 
 ## コントリビューション
 
