@@ -1,6 +1,7 @@
 package gogen
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -581,4 +582,53 @@ func TestNew_RejectsTimestampKey(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGenerate_SnakeNames(t *testing.T) {
+	// テーブル名・ファイル名は message 名から（頭字語は 1 語）、列名・JSON のキーは proto のフィールド名そのまま
+	files := prototest.Generate(t, map[string]string{"log/v1/log.proto": `syntax = "proto3";
+package log.v1;
+// @entity
+message HTTPLog {
+  // @pk
+  int64 id = 1;
+  int32 pos_x_y = 2;
+  // @timestamp
+  int64 created_at_unix = 3;
+}
+`}, New(Params{ImportPath: "example.com/x/server"}))
+	src, ok := files["internal/domain/entity/http_log.gen.go"]
+	if !ok {
+		t.Fatalf("entity のファイル名が http_log.gen.go になっていない: %v", keys(files))
+	}
+	flat := strings.Join(strings.Fields(src), " ")
+	for _, want := range []string{`return "http_logs"`, "column:pos_x_y;", "column:created_at;"} {
+		if !strings.Contains(flat, want) {
+			t.Errorf("%q が無い:\n%s", want, src)
+		}
+	}
+	dto := strings.Join(strings.Fields(files["internal/dto/http_log.gen.go"]), " ")
+	for _, want := range []string{"`json:\"pos_x_y\"`", "`json:\"created_at_unix\"`"} {
+		if !strings.Contains(dto, want) {
+			t.Errorf("DTO に %q が無い:\n%s", want, dto)
+		}
+	}
+}
+
+func TestNew_RejectsNonSnakeEntityField(t *testing.T) {
+	// 列名・JSON のキーは proto のフィールド名をそのまま使うので、lower_snake_case に限る
+	src := "syntax = \"proto3\";\npackage a.v1;\n// @entity\nmessage Post {\n  // @pk\n  int64 id = 1;\n  string authorName = 2;\n}\n"
+	_, err := New(Params{ImportPath: "example.com/x/server"})(prototest.Files(t, map[string]string{"a/v1/a.proto": src}))
+	if err == nil || !strings.Contains(err.Error(), "authorName") {
+		t.Errorf("err = %v, want lower_snake_case でないフィールドのエラー", err)
+	}
+}
+
+func keys(m map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	slices.Sort(out)
+	return out
 }

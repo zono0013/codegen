@@ -3,11 +3,21 @@ package naming
 import "testing"
 
 func TestToSnake(t *testing.T) {
+	// 大文字の並び（頭字語）は 1 語として扱う。GORM の既定の命名と同じ
 	tests := map[string]string{
-		"CreatedAt": "created_at",
-		"id":        "id",
-		"AuthorId":  "author_id",
-		"URL":       "u_r_l",
+		"CreatedAt":   "created_at",
+		"id":          "id",
+		"AuthorId":    "author_id",
+		"URL":         "url",
+		"HTTPLog":     "http_log",
+		"UserID":      "user_id",
+		"APIKey":      "api_key",
+		"ABTest":      "ab_test",
+		"MailOutbox":  "mail_outbox",
+		"Address2":    "address2",
+		"V2Migration": "v2_migration",
+		// 既知の制限: 頭字語の複数形は区切りがずれる（GORM は "urls"）
+		"URLs": "ur_ls",
 	}
 	for in, want := range tests {
 		if got := ToSnake(in); got != want {
