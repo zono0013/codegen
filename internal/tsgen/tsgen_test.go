@@ -212,3 +212,31 @@ func TestNew_RequiresClient(t *testing.T) {
 		t.Errorf("err = %v, want Client が空であることを示すエラー", err)
 	}
 }
+
+func TestGenerate_HiddenFieldNotInSchema(t *testing.T) {
+	files := prototest.Generate(t, map[string]string{"user/v1/user.proto": `syntax = "proto3";
+package user.v1;
+// @entity
+message User {
+  // @pk
+  string uuid = 1;
+  string email = 2;
+  // bcrypt のハッシュ
+  // @hidden
+  bytes password = 3;
+}
+message GetUserRequest { string uuid = 1; }
+message GetUserResponse { User user = 1; }
+service UserService {
+  // @http GET /api/users/{uuid}
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+}
+`}, New(Params{Client: "~/lib/http"}))
+	src := files["schemas/user.gen.ts"]
+	if strings.Contains(src, "password") {
+		t.Errorf("Zod スキーマに @hidden の password が出ている:\n%s", src)
+	}
+	if !strings.Contains(src, "email:") {
+		t.Errorf("@hidden 以外のフィールドまで消えた:\n%s", src)
+	}
+}

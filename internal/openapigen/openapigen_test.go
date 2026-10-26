@@ -368,3 +368,32 @@ service TagService {
 		}
 	}
 }
+
+func TestGenerate_HiddenFieldNotInSchema(t *testing.T) {
+	files := prototest.Generate(t, map[string]string{"user/v1/user.proto": `syntax = "proto3";
+package user.v1;
+// @entity
+message User {
+  // @pk
+  string uuid = 1;
+  string email = 2;
+  // bcrypt のハッシュ
+  // @hidden
+  bytes password = 3;
+}
+message GetUserRequest { string uuid = 1; }
+message GetUserResponse { User user = 1; }
+service UserService {
+  // @http GET /api/users/{uuid}
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+}
+`}, New(Params{Title: "User API", Version: "0.1.0"}))
+	doc := prototest.LoadOpenAPI(t, files, RootFile)
+	v := doc.Components.Schemas["User"].Value
+	if v.Properties["password"] != nil || slices.Contains(v.Required, "password") {
+		t.Errorf("OpenAPI の User に @hidden の password が出ている: %v", v.Required)
+	}
+	if v.Properties["email"] == nil {
+		t.Errorf("@hidden 以外のフィールドまで消えた")
+	}
+}

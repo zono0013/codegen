@@ -181,11 +181,17 @@ func schemaFile(d *domain, domains map[string]*domain) string {
 			lines = append(lines, "export const "+n+"Schema = "+schema)
 		} else {
 			lines = append(lines, "export const "+n+"Schema = z.object({")
-			if len(msg.Fields) == 0 {
-				lines = append(lines, "  // empty message")
-			}
+			isEntity := rest.IsEntity(msg)
+			empty := true
 			for _, f := range msg.Fields {
+				if isEntity && rest.IsHidden(f) {
+					continue
+				}
 				lines = append(lines, "  "+string(f.Desc.Name())+": "+zodType(f)+",")
+				empty = false
+			}
+			if empty {
+				lines = append(lines, "  // empty message")
 			}
 			lines = append(lines, "})")
 		}
