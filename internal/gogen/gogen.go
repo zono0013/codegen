@@ -140,7 +140,8 @@ type service struct {
 	Methods           []method
 	AnyReturnsEntity  bool
 	AnyUsesEntity     bool
-	HandlerUsesEntity bool // Output の entity は usecase 側にしか出ないので AnyUsesEntity と別に持つ
+	HandlerUsesEntity bool // Input の entity は handler の body 型にも出るので、usecase 側と別に持つ
+	NeedsDTO          bool // usecase の型が dto を参照するか（entity を返す rpc、Output や非 entity message の中の entity）
 	NonEntityTypes    []outputType
 	NeedsStrconv      bool
 }
@@ -402,6 +403,7 @@ type typeResolver struct {
 	names    map[protoreflect.FullName]string
 	used     map[string]bool
 	types    map[string]outputType
+	usesDTO  bool // Output や非 entity message（Input から辿るものも含む）が dto の型を参照したか
 }
 
 func buildService(svc *protogen.Service, entities map[protoreflect.FullName]*entity) service {
@@ -466,9 +468,6 @@ func buildService(svc *protogen.Service, entities map[protoreflect.FullName]*ent
 			for _, f := range m.Output.Fields {
 				r.collect(f)
 			}
-			if r.usesEntity(m.Output) {
-				s.AnyUsesEntity = true
-			}
 		}
 		if mt.ReturnsEntity || mt.ReturnsList {
 			// 戻り値は DTO に変換済みなので entity package は import しない
@@ -498,6 +497,7 @@ func buildService(svc *protogen.Service, entities map[protoreflect.FullName]*ent
 		s.Methods = append(s.Methods, mt)
 	}
 
+	s.NeedsDTO = s.AnyReturnsEntity || r.usesDTO
 	s.NonEntityTypes = slices.SortedFunc(maps.Values(r.types), func(a, b outputType) int { return strings.Compare(a.Name, b.Name) })
 	return s
 }
@@ -526,9 +526,27 @@ func (r *typeResolver) name(msg *protogen.Message) string {
 func (r *typeResolver) outputField(f *protogen.Field) outputField {
 	return outputField{
 		GoName:  normalizeInitialisms(f.GoName),
-		GoType:  r.goType(f, ""),
+		GoType:  r.outputGoType(f),
 		JsonTag: string(f.Desc.Name()),
 	}
+}
+
+// outputGoType は Output と非 entity message（Input から辿るものも含む）のフィールド型。entity は DTO にする。
+// entity は json タグを持たないので、そのまま JSON にするとキーが Go のフィールド名になり、OpenAPI・TS と食い違う。
+func (r *typeResolver) outputGoType(f *protogen.Field) string {
+	if f.Desc.IsMap() {
+		return "map[" + r.goType(f.Message.Fields[0], "") + "]" + r.outputGoType(f.Message.Fields[1])
+	}
+	if f.Desc.Kind() == protoreflect.MessageKind && f.Message != nil {
+		if e, ok := r.entities[f.Message.Desc.FullName()]; ok {
+			r.usesDTO = true
+			if f.Desc.IsList() {
+				return "[]*dto." + e.Name + "DTO"
+			}
+			return "*dto." + e.Name + "DTO"
+		}
+	}
+	return r.goType(f, "")
 }
 
 // goType は Input / Output struct のフィールド型。非 entity message は usecase package に生成する struct を指し、
@@ -569,22 +587,6 @@ func (r *typeResolver) collect(f *protogen.Field) {
 	for _, child := range msg.Fields {
 		r.collect(child)
 	}
-}
-
-func (r *typeResolver) usesEntity(msg *protogen.Message) bool {
-	for _, f := range msg.Fields {
-		ref := referencedMessage(f)
-		if ref == nil {
-			continue
-		}
-		if _, ok := r.entities[ref.Desc.FullName()]; ok {
-			return true
-		}
-		if !f.Desc.IsMap() && r.usesEntity(ref) {
-			return true
-		}
-	}
-	return false
 }
 
 // referencedMessage は f が指す message（map なら value 側）。scalar なら nil。

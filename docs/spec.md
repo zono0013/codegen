@@ -195,7 +195,7 @@ Handler・FE の型・OpenAPI は、この規則を `internal/rest` から取る
 
 - entity の `string` / `int32` / `int64` / `bool` 以外の scalar、enum、nested message、別パッケージの message
 - string / 整数 / bool 以外（float / double / bytes / enum など）の path param
-- Output / body に entity を含める（Go だけ DTO ではなく entity の形で JSON 化される）
+- request の body の直下に entity を含める（Go の Input は entity の型で受けるので、JSON のキーが DTO・OpenAPI・TS と合わない。非 entity message の中の entity は DTO で受ける）
 - FE の GET 関数は、path 以外の全フィールドを query に載せる型になっている（Handler は scalar しか読まない）
 
 ## OpenAPI の出力
