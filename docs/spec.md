@@ -191,6 +191,8 @@ Handler・FE の型・OpenAPI は、この規則を `internal/rest` から取る
 
 **JSON の型**: `encoding/json` 基準（protojson ではない）。int64 も数値、キーは proto のフィールド名（snake_case）。
 
+**Go の名前**: フィールドは protoc-gen-go と同じ名前にし、頭字語の単語（`ID` / `UUID` / `URL` / `API` / `IP` など。golint の一覧と同じ）を大文字にする（`community_uuid` → `CommunityUUID`、`user_id_list` → `UserIDList`）。
+
 **未対応**（今は検出されずに壊れた出力になるので、使う前に対応が必要）:
 
 - entity の `string` / `int32` / `int64` / `bool` 以外の scalar、enum、nested message、別パッケージの message

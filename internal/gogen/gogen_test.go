@@ -238,3 +238,31 @@ service TagService {
 		t.Errorf("Output が entity を参照している:\n%s", src)
 	}
 }
+
+func TestNormalizeInitialisms(t *testing.T) {
+	// Go の慣習（golint / staticcheck の ST1003 の一覧）どおり、頭字語の単語を大文字にする
+	tests := map[string]string{
+		"Id":            "ID",
+		"AuthorId":      "AuthorID",
+		"Uuid":          "UUID",
+		"CommunityUuid": "CommunityUUID",
+		"UserIdList":    "UserIDList",
+		"ApiKey":        "APIKey",
+		"HttpUrl":       "HTTPURL",
+		"RemoteIp":      "RemoteIP",
+		"RawSql":        "RawSQL",
+		"BodyHtml":      "BodyHTML",
+		"Utf8Name":      "UTF8Name",
+		// 頭字語ではない単語はそのまま
+		"Ipsum":    "Ipsum",
+		"Identity": "Identity",
+		"Ids":      "Ids",
+		"Name":     "Name",
+		"XURL":     "XURL",
+	}
+	for in, want := range tests {
+		if got := normalizeInitialisms(in); got != want {
+			t.Errorf("normalizeInitialisms(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
