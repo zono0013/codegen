@@ -17,7 +17,7 @@ make -C codegen codegen-init CONFIG_ONLY=1 SERVER_OUT=server FRONT_OUT=client/sr
 - `FRONT_OUT`: 生成した TS の置き場所
 - `CLIENT`: 既存の API クライアント（下の「front の API クライアント」を見る）
 
-省略したものはサンプルと同じ値（`server`、`front/generate`、`@/shared/api/apiClient`）になる。書き出される `codegen.yaml` は次のようになる。手で書いてもよい（パスはこのファイルからの相対）。
+省略したものはサンプルと同じ値（`server`、`front/generate`、`@/shared/api/apiClient`）になる。書き出される `codegen.yaml` は次のようになる（1 行目には説明のコメントが付く）。手で書いてもよい（パスはこのファイルからの相対）。
 
 ```yaml
 proto: proto

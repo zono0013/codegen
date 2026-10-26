@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/zono0013/codegen/internal/config"
 )
 
 // newConsumer は codegen を codegen/ に置いた（Submodule として取り込んだのと同じ配置の）プロジェクトを作る。
@@ -135,26 +137,42 @@ func TestRun_InitRequiresCodegenInsideRoot(t *testing.T) {
 	}
 }
 
-func TestRun_InitConfigOnly(t *testing.T) {
-	// 既存のプロジェクト（api/ に go.mod がある）に、サンプルをコピーせずに入れる
-	root, codegen := newConsumer(t)
+// newExisting は、api/ に go.mod がある既存のプロジェクトに codegen を取り込んだ状態を作る。
+func newExisting(t *testing.T) (root, codegen string) {
+	t.Helper()
+	root, codegen = newConsumer(t)
 	if err := os.MkdirAll(filepath.Join(root, "api"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(root, "api", "go.mod"), []byte("module example.com/hub/api\n\ngo 1.24\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	return root, codegen
+}
+
+func TestRun_InitConfigOnly(t *testing.T) {
+	// 既存のプロジェクトに、サンプルをコピーせずに入れる
+	root, codegen := newExisting(t)
 	out, err := runGen(t, "init", "-root", root, "-codegen", codegen, "-config-only",
-		"-server-out", "api", "-front-out", "web/src/generated", "-client", "@/utils/client", "-title", "Hub API")
+		"-server-out", "api", "-front-out", "web/src/generated", "-client", "@/utils/client", "-title", "Hub: API # v2")
 	if err != nil {
 		t.Fatalf("%v\n%s", err, out)
 	}
 
-	cfg := read(t, filepath.Join(root, "codegen.yaml"))
-	for _, want := range []string{"out: api", "out: web/src/generated", "client: '@/utils/client'", "title: Hub API", "proto: proto", "codegen/docs/spec.md"} {
-		if !strings.Contains(cfg, want) {
-			t.Errorf("codegen.yaml に %q が無い:\n%s", want, cfg)
-		}
+	cfg, err := config.Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := config.Config{Proto: "proto", Targets: config.Targets{
+		Server:  config.Server{Out: "api", ImportPath: "example.com/hub/api"},
+		Front:   config.Front{Out: "web/src/generated", Client: "@/utils/client"},
+		OpenAPI: config.OpenAPI{Out: "docs/openapi", Title: "Hub: API # v2", Version: "0.1.0"},
+	}}
+	if cfg != want {
+		t.Errorf("codegen.yaml = %+v, want %+v", cfg, want)
+	}
+	if got := read(t, filepath.Join(root, "codegen.yaml")); !strings.Contains(got, "codegen/docs/spec.md") {
+		t.Errorf("codegen.yaml の説明が仕様を指していない:\n%s", got)
 	}
 	for _, sample := range []string{"front", "server", filepath.Join("api", "cmd", "api"), filepath.Join("proto", "article")} {
 		if _, err := os.Stat(filepath.Join(root, sample)); err == nil {
@@ -174,21 +192,51 @@ func TestRun_InitConfigOnly(t *testing.T) {
 }
 
 func TestRun_InitConfigOnlyWithoutGoMod(t *testing.T) {
-	// 出力先に go.mod が無ければ失敗し、codegen.yaml を残さない（直してそのまま再実行できるように）
+	// 出力先に go.mod が無ければ失敗し、codegen.yaml を書かない（直してそのまま再実行できるように）
 	root, codegen := newConsumer(t)
 	_, err := runGen(t, "init", "-root", root, "-codegen", codegen, "-config-only")
 	if err == nil || !strings.Contains(err.Error(), "go.mod") {
 		t.Fatalf("err = %v, want go.mod が無いというエラー", err)
 	}
 	if _, err := os.Stat(filepath.Join(root, "codegen.yaml")); err == nil {
-		t.Error("失敗したのに codegen.yaml が残っている")
+		t.Error("失敗したのに codegen.yaml を書いた")
 	}
 }
 
-func TestRun_InitConfigOnlyRejectsModule(t *testing.T) {
+func TestRun_InitConfigOnlyForceKeepsConfigOnFailure(t *testing.T) {
+	// -force で書き直そうとして失敗しても、今の codegen.yaml は壊さない
+	root, codegen := newExisting(t)
+	if _, err := runGen(t, "init", "-root", root, "-codegen", codegen, "-config-only", "-server-out", "api"); err != nil {
+		t.Fatal(err)
+	}
+	before := read(t, filepath.Join(root, "codegen.yaml"))
+	if _, err := runGen(t, "init", "-root", root, "-codegen", codegen, "-config-only", "-force", "-server-out", "nope"); err == nil {
+		t.Fatal("go.mod の無い出力先で成功した")
+	}
+	if got := read(t, filepath.Join(root, "codegen.yaml")); got != before {
+		t.Errorf("失敗した -force が codegen.yaml を書き換えた:\n%s", got)
+	}
+}
+
+func TestRun_InitConfigOnlyFlags(t *testing.T) {
 	root, codegen := newConsumer(t)
-	_, err := runGen(t, "init", "-root", root, "-codegen", codegen, "-config-only", "-module", "example.com/x")
-	if err == nil || !strings.Contains(err.Error(), "-module") {
-		t.Errorf("err = %v, want -config-only では -module を使わないというエラー", err)
+	for _, tc := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"-config-only では -module を使わない", []string{"-config-only", "-module", "example.com/x"}, "-module"},
+		// 付け忘れると、既存のプロジェクトにサンプルが全部コピーされてしまう
+		{"出力先の指定は -config-only と一緒に使う", []string{"-module", "example.com/x", "-server-out", "api"}, "-config-only"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			args := append([]string{"init", "-root", root, "-codegen", codegen}, tc.args...)
+			if _, err := runGen(t, args...); err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("err = %v, want %s についてのエラー", err, tc.want)
+			}
+		})
+	}
+	if _, err := os.Stat(filepath.Join(root, "server")); err == nil {
+		t.Error("エラーなのにサンプルをコピーした")
 	}
 }

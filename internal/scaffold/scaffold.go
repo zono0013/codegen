@@ -241,6 +241,7 @@ func WriteConfig(opts Options, title, version string) error {
 }
 
 // WriteNewConfig は cfg を To の codegen.yaml に書き出す。サンプルをコピーせずに既存のプロジェクトへ入れるとき（init -config-only）に使う。
+// 出力先が使えない（go.mod が無い、別のリポジトリの中など）ときは書かずにエラーを返す。
 func WriteNewConfig(opts Options, cfg config.Config) error {
 	if err := CheckConfigAbsent(opts); err != nil {
 		return err
@@ -255,8 +256,13 @@ func WriteNewConfig(opts Options, cfg config.Config) error {
 	if err := enc.Close(); err != nil {
 		return err
 	}
-	if _, err := config.Parse(b.Bytes()); err != nil {
+	// 書く前に検証する。失敗したら何も書かない（既にある codegen.yaml を -force で書き換えるときも、壊さずに残す）
+	parsed, err := config.Parse(b.Bytes())
+	if err != nil {
 		return fmt.Errorf("書き出す codegen.yaml が不正: %w", err)
+	}
+	if err := parsed.Resolve(opts.To); err != nil {
+		return err
 	}
 	return os.WriteFile(filepath.Join(opts.To, config.FileName), b.Bytes(), 0o644)
 }

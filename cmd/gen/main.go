@@ -172,8 +172,8 @@ func clean(root string, stdout io.Writer) error {
 type initOptions struct {
 	module, title, version, codegen string
 	force                           bool
+	configOnly                      bool
 	// -config-only のときだけ使う。空ならサンプルの codegen.yaml の値
-	configOnly                                     bool
 	proto, serverOut, frontOut, client, openapiOut string
 }
 
@@ -209,6 +209,10 @@ func runInit(root string, o initOptions, stdout io.Writer) error {
 	}
 	if o.configOnly {
 		return runInitConfigOnly(absRoot, opts, sample, o, stdout)
+	}
+	// サンプルをコピーするときに出力先を変えられると、コピーした手書き層と生成物の置き場所が食い違う
+	if o.proto+o.serverOut+o.frontOut+o.client+o.openapiOut != "" {
+		return errors.New("-proto / -server-out / -front-out / -client / -openapi-out は -config-only と一緒に使う（付けないとサンプルをコピーする）")
 	}
 
 	if o.module == "" && isTerminal(os.Stdin) {
@@ -294,11 +298,6 @@ func runInitConfigOnly(absRoot string, opts scaffold.Options, sample config.Conf
 	cfg.Targets.OpenAPI.Version = o.version
 
 	if err := scaffold.WriteNewConfig(opts, cfg); err != nil {
-		return err
-	}
-	// 出力先が使えない（go.mod が無いなど）なら、初期化済みにせず、直して再実行できるようにする
-	if _, err := config.Load(absRoot); err != nil {
-		_ = os.Remove(filepath.Join(absRoot, config.FileName))
 		return err
 	}
 	if err := os.MkdirAll(filepath.Join(absRoot, filepath.FromSlash(cfg.Proto)), 0o755); err != nil {

@@ -61,19 +61,29 @@ func Load(root string) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("%s: %w", p, err)
 	}
-	for _, o := range []struct{ key, out string }{
-		{"targets.server.out", cfg.Targets.Server.Out},
-		{"targets.front.out", cfg.Targets.Front.Out},
-		{"targets.openapi.out", cfg.Targets.OpenAPI.Out},
-	} {
-		if err := outsideOtherRepositories(root, o.out); err != nil {
-			return Config{}, fmt.Errorf("%s: %s: %w", p, o.key, err)
-		}
-	}
-	if cfg.Targets.Server.ImportPath, err = importPath(root, cfg.Targets.Server.Out); err != nil {
-		return Config{}, fmt.Errorf("%s: targets.server.out: %w", p, err)
+	if err := cfg.Resolve(root); err != nil {
+		return Config{}, fmt.Errorf("%s: %w", p, err)
 	}
 	return cfg, nil
+}
+
+// Resolve は、Parse 済みの設定の出力先が root の中で使えるかを確かめ、server の import path を go.mod から求める。
+// ファイルを書く前に検証できるよう、Load から分けてある（gen init -config-only）。
+func (c *Config) Resolve(root string) error {
+	for _, o := range []struct{ key, out string }{
+		{"targets.server.out", c.Targets.Server.Out},
+		{"targets.front.out", c.Targets.Front.Out},
+		{"targets.openapi.out", c.Targets.OpenAPI.Out},
+	} {
+		if err := outsideOtherRepositories(root, o.out); err != nil {
+			return fmt.Errorf("%s: %w", o.key, err)
+		}
+	}
+	var err error
+	if c.Targets.Server.ImportPath, err = importPath(root, c.Targets.Server.Out); err != nil {
+		return fmt.Errorf("targets.server.out: %w", err)
+	}
+	return nil
 }
 
 // outsideOtherRepositories は out から codegen.yaml のあるディレクトリまで（そのものは含まない）に、
