@@ -156,8 +156,15 @@ func (g *generator) operation(svc *protogen.Service, m *protogen.Method, h *anno
 	fields := rest.Partition(m.Input, h)
 	var params []*yaml.Node
 	for _, f := range fields.Path {
-		// Handler は r.PathValue で読むので常に string
-		params = append(params, parameter(f, "path", true, mapping("type", str("string"))))
+		// Handler は string / 整数 / bool の path param をその型に変換して読む（読めなければ 400）
+		schema := mapping("type", str("string"))
+		if rest.IsQueryable(f) {
+			var err error
+			if schema, err = g.fieldSchema(f, false); err != nil {
+				return nil, err
+			}
+		}
+		params = append(params, parameter(f, "path", true, schema))
 	}
 	for _, f := range fields.Query {
 		s, err := g.fieldSchema(f, false)

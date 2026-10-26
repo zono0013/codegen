@@ -93,7 +93,13 @@ type inputField struct {
 	ParamName     string
 	GoType        string // usecase package から見た型
 	HandlerGoType string // handler package から見た型（非 entity message に "usecase." が付く）
-	QueryGoType   string // query string から読む scalar 型。読めないフィールドは ""
+	// ScalarGoType は path / query の文字列から読める scalar の Go 型（string / bool / int32 / int64 / uint32 / uint64）。
+	// 読めないフィールドは ""
+	ScalarGoType string
+	// ParseFormat は文字列を ScalarGoType に変換する strconv の呼び出し（%s に文字列の式が入る）。string は ""
+	ParseFormat string
+	// ParsedConv は ParseFormat の結果（int64 / uint64）を ScalarGoType に変換する型名。変換が要らなければ ""
+	ParsedConv string
 }
 
 type method struct {
@@ -430,8 +436,9 @@ func buildService(svc *protogen.Service, entities map[protoreflect.FullName]*ent
 				ParamName:     lowerFirst(f.GoName),
 				GoType:        goType,
 				HandlerGoType: r.goType(f, "usecase."),
-				QueryGoType:   queryScalarGoType(f),
+				ScalarGoType:  scalarGoType(f),
 			}
+			in.ParseFormat, in.ParsedConv = scalarParse(in.ScalarGoType)
 			if strings.Contains(goType, "entity.") {
 				s.AnyUsesEntity = true
 				s.HandlerUsesEntity = true
@@ -474,7 +481,9 @@ func buildService(svc *protogen.Service, entities map[protoreflect.FullName]*ent
 			mt.Status = statusConst[rest.SuccessStatus(mt.Http.Method, shape)]
 			fields := rest.Partition(m.Input, mt.Http)
 			for _, f := range fields.Path {
-				mt.PathParamFields = append(mt.PathParamFields, inputs[f])
+				in := inputs[f]
+				mt.PathParamFields = append(mt.PathParamFields, in)
+				s.NeedsStrconv = s.NeedsStrconv || in.ParseFormat != ""
 			}
 			for _, f := range fields.Body {
 				mt.BodyFields = append(mt.BodyFields, inputs[f])
@@ -482,7 +491,7 @@ func buildService(svc *protogen.Service, entities map[protoreflect.FullName]*ent
 			for _, f := range fields.Query {
 				in := inputs[f]
 				mt.QueryFields = append(mt.QueryFields, in)
-				s.NeedsStrconv = s.NeedsStrconv || in.QueryGoType == "int32" || in.QueryGoType == "int64"
+				s.NeedsStrconv = s.NeedsStrconv || in.ParseFormat != ""
 			}
 		}
 
@@ -589,8 +598,9 @@ func referencedMessage(f *protogen.Field) *protogen.Message {
 	return f.Message
 }
 
-// queryScalarGoType は Handler が query string から読むときの型。読めないフィールドは ""。
-func queryScalarGoType(f *protogen.Field) string {
+// scalarGoType は Handler が path / query の文字列から読むときの型。読めないフィールドは ""。
+// goTypeFromKind と同じ型にする（Input のフィールドにそのまま代入するため）。
+func scalarGoType(f *protogen.Field) string {
 	if !rest.IsQueryable(f) {
 		return ""
 	}
@@ -599,12 +609,32 @@ func queryScalarGoType(f *protogen.Field) string {
 		return "string"
 	case protoreflect.BoolKind:
 		return "bool"
-	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind,
-		protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
 		return "int64"
+	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return "uint64"
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+		return "uint32"
 	default:
 		return "int32"
 	}
+}
+
+// scalarParse は scalarGoType の型へ文字列から変換する strconv の呼び出しと、その結果に掛ける型変換を返す。
+func scalarParse(goType string) (format, conv string) {
+	switch goType {
+	case "bool":
+		return "strconv.ParseBool(%s)", ""
+	case "int32":
+		return "strconv.ParseInt(%s, 10, 32)", "int32"
+	case "int64":
+		return "strconv.ParseInt(%s, 10, 64)", ""
+	case "uint32":
+		return "strconv.ParseUint(%s, 10, 32)", "uint32"
+	case "uint64":
+		return "strconv.ParseUint(%s, 10, 64)", ""
+	}
+	return "", ""
 }
 
 func goTypeFromKind(f *protogen.Field, entities map[protoreflect.FullName]*entity) string {

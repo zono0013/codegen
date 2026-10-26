@@ -26,16 +26,17 @@ func New{{.HandlerTypeName}}(errWriter errs.ErrorWriter, uc usecase.{{.UsecaseTy
 {{define "input" -}}
 usecase.{{.InputTypeName}}{
 {{- range .PathParamFields}}
-		{{.GoName}}: r.PathValue("{{.JsonName}}"),
+		{{.GoName}}: {{if .ParseFormat}}{{template "parsed" .}}{{else}}r.PathValue("{{.JsonName}}"){{end}},
 {{- end}}
 {{- range .BodyFields}}
 		{{.GoName}}: body.{{.GoName}},
 {{- end}}
 {{- range .QueryFields}}
-		{{.GoName}}: {{if eq .QueryGoType "int32"}}int32(_{{.ParamName}}){{else}}_{{.ParamName}}{{end}},
+		{{.GoName}}: {{template "parsed" .}},
 {{- end}}
 	}
 {{- end}}
+{{define "parsed"}}{{if .ParsedConv}}{{.ParsedConv}}(_{{.ParamName}}){{else}}_{{.ParamName}}{{end}}{{end}}
 {{- range .Methods}}
 {{- if .Http}}
 {{- if .BodyFields}}
@@ -56,17 +57,23 @@ func (h *{{$.HandlerTypeName}}) {{.Name}}(w http.ResponseWriter, r *http.Request
 		return
 	}
 {{- end}}
+{{- range .PathParamFields}}
+{{- if .ParseFormat}}
+	_{{.ParamName}}, err := {{printf .ParseFormat (printf "r.PathValue(%q)" .JsonName)}}
+	if err != nil {
+		h.errWriter.WriteError(w, r, errs.NewBadRequestError("invalid path parameter: {{.JsonName}}"))
+		return
+	}
+{{- end}}
+{{- end}}
 {{- if .QueryFields}}
-	_urlq := r.URL.Query()
+	urlQuery := r.URL.Query()
 {{- range .QueryFields}}
-{{- if eq .QueryGoType "string"}}
-	_{{.ParamName}} := _urlq.Get("{{.JsonName}}")
-{{- else if eq .QueryGoType "int32"}}
-	_{{.ParamName}}, _ := strconv.Atoi(_urlq.Get("{{.JsonName}}"))
-{{- else if eq .QueryGoType "int64"}}
-	_{{.ParamName}}, _ := strconv.ParseInt(_urlq.Get("{{.JsonName}}"), 10, 64)
-{{- else if eq .QueryGoType "bool"}}
-	_{{.ParamName}} := _urlq.Get("{{.JsonName}}") == "true"
+{{- if eq .ScalarGoType "string"}}
+	_{{.ParamName}} := urlQuery.Get("{{.JsonName}}")
+{{- else}}
+{{- /* 無い・読めない query はゼロ値（範囲外の整数は strconv が返す端の値）として扱う。query は省略できるので 400 にしない */}}
+	_{{.ParamName}}, _ := {{printf .ParseFormat (printf "urlQuery.Get(%q)" .JsonName)}}
 {{- end}}
 {{- end}}
 {{- end}}

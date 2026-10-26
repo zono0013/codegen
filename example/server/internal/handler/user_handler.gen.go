@@ -34,9 +34,9 @@ func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/users/cursor
 func (h *UserHandler) ListUsersByCursor(w http.ResponseWriter, r *http.Request) {
-	_urlq := r.URL.Query()
-	_limit, _ := strconv.Atoi(_urlq.Get("limit"))
-	_afterId := _urlq.Get("after_id")
+	urlQuery := r.URL.Query()
+	_limit, _ := strconv.ParseInt(urlQuery.Get("limit"), 10, 32)
+	_afterId := urlQuery.Get("after_id")
 	list, err := h.usecase.ListUsersByCursor(r.Context(), usecase.ListUsersByCursorInput{
 		Limit:   int32(_limit),
 		AfterID: _afterId,
@@ -52,8 +52,8 @@ func (h *UserHandler) ListUsersByCursor(w http.ResponseWriter, r *http.Request) 
 
 // GET /api/users/by-email
 func (h *UserHandler) GetUserByEmail(w http.ResponseWriter, r *http.Request) {
-	_urlq := r.URL.Query()
-	_email := _urlq.Get("email")
+	urlQuery := r.URL.Query()
+	_email := urlQuery.Get("email")
 	result, err := h.usecase.GetUserByEmail(r.Context(), usecase.GetUserByEmailInput{
 		Email: _email,
 	})

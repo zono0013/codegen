@@ -128,3 +128,68 @@ func TestGenerate_StringPKIsRequired(t *testing.T) {
 		t.Errorf("文字列の主キーの空チェックが無い:\n%s", src)
 	}
 }
+
+const typedParamsProto = `syntax = "proto3";
+package tag.v1;
+// @entity
+message Tag {
+  // @pk
+  int64 id = 1;
+}
+message GetTagRequest {
+  int64 id = 1;
+  int32 rev = 2;
+  uint32 page = 3;
+  uint64 offset = 4;
+  bool archived = 5;
+  string q = 6;
+}
+message GetTagResponse { Tag tag = 1; }
+message DeleteTagRequest {
+  uint64 id = 1;
+  bool force = 2;
+}
+message DeleteTagResponse {}
+service TagService {
+  // @http GET /api/tags/{id}/revisions/{rev}
+  rpc GetTag(GetTagRequest) returns (GetTagResponse);
+  // @http DELETE /api/tags/{id}/{force}
+  rpc DeleteTag(DeleteTagRequest) returns (DeleteTagResponse);
+}
+`
+
+func TestGenerate_TypedParams(t *testing.T) {
+	files := prototest.Generate(t, map[string]string{"tag/v1/tag.proto": typedParamsProto}, New(Params{ImportPath: "example.com/x/server"}))
+	src := files["internal/handler/tag_handler.gen.go"]
+	for _, want := range []string{
+		// path は型に合わせて変換し、読めなければ 400 にする
+		`_id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)`,
+		`_rev, err := strconv.ParseInt(r.PathValue("rev"), 10, 32)`,
+		`errs.NewBadRequestError("invalid path parameter: id")`,
+		`_id, err := strconv.ParseUint(r.PathValue("id"), 10, 64)`,
+		`_force, err := strconv.ParseBool(r.PathValue("force"))`,
+		`int32(_rev),`,
+		// query の符号なし整数は同じ型で読む（int32 / int64 のまま代入するとコンパイルできない）
+		`_page, _ := strconv.ParseUint(urlQuery.Get("page"), 10, 32)`,
+		`uint32(_page),`,
+		`_offset, _ := strconv.ParseUint(urlQuery.Get("offset"), 10, 64)`,
+		`_archived, _ := strconv.ParseBool(urlQuery.Get("archived"))`,
+		`_q := urlQuery.Get("q")`,
+		`"strconv"`,
+	} {
+		if !strings.Contains(src, want) {
+			t.Errorf("%q が無い:\n%s", want, src)
+		}
+	}
+	if strings.Contains(src, `: r.PathValue(`) {
+		t.Errorf("整数の path param を文字列のまま代入している:\n%s", src)
+	}
+}
+
+func TestGenerate_StringPathParamNeedsNoStrconv(t *testing.T) {
+	files := prototest.Generate(t, map[string]string{"shop/v1/shop.proto": testProto}, New(Params{ImportPath: "example.com/x/server"}))
+	src := files["internal/handler/item_handler.gen.go"]
+	if !strings.Contains(src, `: r.PathValue("id"),`) || strings.Contains(src, `"strconv"`) {
+		t.Errorf("文字列の path param はそのまま読み、strconv を import しない:\n%s", src)
+	}
+}

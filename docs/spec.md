@@ -200,7 +200,7 @@ Handler・FE の型・OpenAPI は、この規則を `internal/rest` から取る
 
 | | path param | それ以外のフィールド |
 | --- | --- | --- |
-| `GET` / `DELETE` | `{name}` → 常に string | query string。読めるのは scalar だけ（repeated / map / message は無視） |
+| `GET` / `DELETE` | `{name}` → フィールドの型（string / 整数 / bool）に変換する。変換できなければ 400 | query string。読めるのは scalar だけ（repeated / map / message は無視）。整数 / bool は読めなければゼロ値 |
 | `POST` / `PUT` / `PATCH` | 同上 | JSON body |
 
 **JSON の型**: `encoding/json` 基準（protojson ではない）。int64 も数値、キーは proto のフィールド名（snake_case）。
@@ -208,6 +208,7 @@ Handler・FE の型・OpenAPI は、この規則を `internal/rest` から取る
 **未対応**（今は検出されずに壊れた出力になるので、使う前に対応が必要）:
 
 - entity の `string` / `int32` / `int64` / `bool` 以外の scalar、enum、nested message、別パッケージの message
+- string / 整数 / bool 以外（float / double / bytes / enum など）の path param
 - Output / body に entity を含める（Go だけ DTO ではなく entity の形で JSON 化される）
 - FE の GET 関数は、path 以外の全フィールドを query に載せる型になっている（Handler は scalar しか読まない）
 
