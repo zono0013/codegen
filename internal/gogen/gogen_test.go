@@ -485,6 +485,7 @@ func TestNew_RejectsEntityInRequest(t *testing.T) {
 		"repeated":   "message SaveRequest { repeated Item items = 1; }",
 		"map の値":     "message SaveRequest { map<string, Item> items = 1; }",
 		"非 entity の中": "message Wrap { Item item = 1; }\nmessage SaveRequest { Wrap wrap = 1; }",
+		"相互再帰の中":    "message A { B b = 1; }\nmessage B { A a = 1; Item item = 2; }\nmessage SaveRequest { A a = 1; }",
 	} {
 		t.Run(name, func(t *testing.T) {
 			src := `syntax = "proto3";
@@ -504,6 +505,35 @@ service ItemService {
 			_, err := New(Params{ImportPath: "example.com/x/server"})(prototest.Files(t, map[string]string{"shop/v1/shop.proto": src}))
 			if err == nil || !strings.Contains(err.Error(), "Save") || !strings.Contains(err.Error(), "Item") {
 				t.Errorf("err = %v, want request の entity を指すエラー（rpc と entity の名前）", err)
+			}
+		})
+	}
+}
+
+func TestNew_RejectsEntityAsRPCMessage(t *testing.T) {
+	// request そのものが entity だと一括代入、response そのものが entity だと @hidden が DTO を通らずに出る
+	for name, rpc := range map[string]string{
+		"request":  "rpc Save(Item) returns (SaveResponse);",
+		"response": "rpc Get(GetRequest) returns (Item);",
+	} {
+		t.Run(name, func(t *testing.T) {
+			src := `syntax = "proto3";
+package shop.v1;
+// @entity
+message Item {
+  // @pk
+  string id = 1;
+}
+message SaveResponse {}
+message GetRequest { string id = 1; }
+service ItemService {
+  // @http POST /api/items
+  ` + rpc + `
+}
+`
+			_, err := New(Params{ImportPath: "example.com/x/server"})(prototest.Files(t, map[string]string{"shop/v1/shop.proto": src}))
+			if err == nil || !strings.Contains(err.Error(), "Item") {
+				t.Errorf("err = %v, want entity をそのまま rpc の message に使うエラー", err)
 			}
 		})
 	}

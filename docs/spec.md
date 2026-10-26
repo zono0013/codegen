@@ -192,7 +192,7 @@ Handler・FE の型・OpenAPI は、この規則を `internal/rest` から取る
 
 **Entity の型**: scalar は Input / Output と同じ Go の型にする（`sint32` / `sfixed32` → `int32`、`uint32` / `fixed32` → `uint32`、`float` → `float32`、`double` → `float64`、`bytes` → `[]byte` など）。DB の列は Postgres に符号なしの型が無いので、`uint32` / `uint64` は `bigint`（`uint64` は 2^63 以上の値を入れられない）。`repeated` は `jsonb`。`bytes` は Entity の生成関数で nil を空の値にする（nil は NULL として送られ、NOT NULL の列に入らないため）。
 
-**Request に entity は置けない**: request（とそこから辿る message、map の値）に `@entity` の message があると、生成のときにエラーにする。entity をそのまま受けると、主キーや `@hidden` のフィールドまで外から書けてしまう（一括代入）。request は scalar のフィールドを並べて書き、Usecase で entity を組み立てる。
+**Request に entity は置けない**: rpc の request / response に `@entity` の message をそのまま使うと、生成のときにエラーにする（rpc ごとの message で包む。response は `GetItemResponse { Item item = 1; }` のように包めば DTO で返る）。request（とそこから辿る message、map の値）が `@entity` の message を含んでいても、同じくエラーにする。entity をそのまま受けると、主キーや `@hidden` のフィールドまで外から書けてしまう（一括代入）。request は scalar のフィールドを並べて書き、Usecase で entity を組み立てる。
 
 **JSON の型**: `encoding/json` 基準（protojson ではない）。int64 も数値、キーは proto のフィールド名（snake_case）。
 
