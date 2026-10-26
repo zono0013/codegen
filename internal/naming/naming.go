@@ -9,7 +9,8 @@ import (
 )
 
 // ToSnake は Go の名前を snake_case にする（"CreatedAt" → "created_at"、"HTTPLog" → "http_log"）。
-// 大文字の並び（頭字語）は 1 語として扱う（GORM の既定の命名と同じ）。message 名・service 名（テーブル名・ファイル名）に使う。
+// 大文字の並び（頭字語）は 1 語として扱う（GORM の既定の命名に近い。ただし GORM と違い、頭字語の複数形
+// "URLs" は "ur_ls" になる。message 名に使うことはまれなので扱わない）。message 名・service 名（テーブル名・ファイル名）に使う。
 // フィールドの列名・JSON のキーは proto のフィールド名をそのまま使うので、これは通さない。
 func ToSnake(s string) string {
 	var b strings.Builder
