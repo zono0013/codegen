@@ -144,7 +144,7 @@ codegen（このリポジトリ）のルートで実行する。Submodule とし
 | `@paging` | field | cursor pagination の基準列。`SelectByCursor(ctx, limit, after *T)`（ASC 固定）。`@pk` か `@unique` と併記必須、型は `int64` / `int32` / `string`、1 message に 1 個まで |
 | `@required` | `string` field | trim + 非空バリデーション。`string` 以外はエラー |
 | `@email` | `string` field | email 形式バリデーション（`string` 以外はエラー）。Zod は `.email()`、OpenAPI は `format: email` |
-| `@timestamp` | `int64` field | Entity では `time.Time`（名前の `Unix` を除く）。DTO / JSON では `<name>_unix`（Unix 秒） |
+| `@timestamp` | `int64` field（名前は `<name>_unix`） | Entity では `time.Time`（名前の `Unix` を除く）、DB の列は `<name>`。DTO / JSON では `<name>_unix`（Unix 秒）。名前が `_unix` で終わらない、または `int64` でなければエラー |
 | `@decimal(p,s)` | `string` field | Entity / DTO で `decimal.Decimal`、DB は `numeric(p,s)`、JSON は文字列。`@pk` などとは併用不可 |
 | `@hidden` | entity の field | API に出さない（パスワードのハッシュなど）。Entity（DB の列）には残し、DTO・TS の Zod スキーマ・OpenAPI の schema から外す。request には entity を置けないので、外から書き込まれることもない。`@pk` / `@paging` との併記と、entity ではない message での使用はエラー |
 | `@http METHOD /path` | rpc | REST のルート（`GET` / `POST` / `PUT` / `PATCH` / `DELETE`）。`{name}` は path param。**無い rpc は Handler も FE 関数も OpenAPI も作らない**。FE から呼ぶ rpc のパスは `/api/` で始める（example/front は `/api/*` だけをバックエンドに転送する） |

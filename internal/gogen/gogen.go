@@ -349,6 +349,10 @@ func parseEntity(msg *protogen.Message) (*entity, error) {
 			DecimalPrecision: precision,
 			DecimalScale:     scale,
 		}
+		// DTO・OpenAPI は "<名前>_unix"、TS は proto の名前をそのまま JSON のキーにするので、名前が _unix で終わらないとずれる
+		if spec.IsTimestamp && (spec.ProtoType != "int64" || !strings.HasSuffix(string(f.Desc.Name()), "_unix")) {
+			return nil, fmt.Errorf("message %s: field %q: @timestamp requires an int64 field named \"<name>_unix\" (Unix seconds)", name, f.Desc.Name())
+		}
 		if spec.IsDecimal {
 			if spec.ProtoType != "string" {
 				return nil, fmt.Errorf("message %s: field %q: @decimal requires proto type \"string\" but got %q (precision loss prevention)", name, f.GoName, spec.ProtoType)

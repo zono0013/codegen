@@ -538,3 +538,20 @@ service ItemService {
 		})
 	}
 }
+
+func TestNew_RejectsTimestampNameOrType(t *testing.T) {
+	// DTO・OpenAPI は "<名前>_unix"、TS は proto の名前をそのまま使うので、名前が _unix で終わらないとキーがずれる。
+	// Unix 秒なので int64 だけ
+	for name, field := range map[string]string{
+		"名前": "int64 created_at = 2;",
+		"型":  "string created_at_unix = 2;",
+	} {
+		t.Run(name, func(t *testing.T) {
+			src := "syntax = \"proto3\";\npackage a.v1;\n// @entity\nmessage Post {\n  // @pk\n  int64 id = 1;\n  // @timestamp\n  " + field + "\n}\n"
+			_, err := New(Params{ImportPath: "example.com/x/server"})(prototest.Files(t, map[string]string{"a/v1/a.proto": src}))
+			if err == nil || !strings.Contains(err.Error(), "@timestamp") {
+				t.Errorf("err = %v, want @timestamp の名前・型のエラー", err)
+			}
+		})
+	}
+}
