@@ -194,10 +194,8 @@ func generate(files []*protogen.File, params Params) (map[string][]byte, error) 
 				entityByMsg[msg.Desc.FullName()] = e
 				continue
 			}
-			for _, fd := range msg.Fields {
-				if rest.IsHidden(fd) {
-					return nil, fmt.Errorf("message %s: field %q: @hidden works only on @entity fields", msg.Desc.Name(), fd.GoName)
-				}
+			if err := checkEntityOnlyMarkers(msg); err != nil {
+				return nil, err
 			}
 		}
 	}
@@ -349,9 +347,14 @@ func parseEntity(msg *protogen.Message) (*entity, error) {
 			DecimalPrecision: precision,
 			DecimalScale:     scale,
 		}
-		// DTO・OpenAPI は "<名前>_unix"、TS は proto の名前をそのまま JSON のキーにするので、名前が _unix で終わらないとずれる
+		// DTO・OpenAPI は "<名前>_unix"、TS は proto の名前をそのまま JSON のキーにするので、名前が _unix で終わらないとずれる。
+		// 名前の規則を伝えるエラーなので、Go の名前ではなく proto の名前を示す
 		if spec.IsTimestamp && (spec.ProtoType != "int64" || !strings.HasSuffix(string(f.Desc.Name()), "_unix")) {
 			return nil, fmt.Errorf("message %s: field %q: @timestamp requires an int64 field named \"<name>_unix\" (Unix seconds)", name, f.Desc.Name())
+		}
+		// time.Time を引数に取る SelectBy / SelectByCursor は生成していない（repository が time を import しない）
+		if spec.IsTimestamp && (spec.IsPK || spec.IsUnique || isPaging) {
+			return nil, fmt.Errorf("message %s: field %q: @timestamp cannot be combined with @pk/@unique/@paging", name, f.GoName)
 		}
 		if spec.IsDecimal {
 			if spec.ProtoType != "string" {
@@ -692,6 +695,28 @@ func entityInMessage(msg *protogen.Message, entities map[protoreflect.FullName]*
 		}
 	}
 	return "", ""
+}
+
+// entityOnlyMarkers は entity のフィールドでだけ意味を持つアノテーション。@email は TS・OpenAPI がどの message でも使う。
+var entityOnlyMarkers = []string{"@pk", "@unique", "@paging", "@required", "@timestamp", "@decimal", "@hidden"}
+
+// checkEntityOnlyMarkers は entity ではない message（入れ子も）に entity 用のアノテーションが付いていればエラーにする。
+// 効かないので、付けた意図（例: @hidden で出さない）と違う出力になる。
+func checkEntityOnlyMarkers(msg *protogen.Message) error {
+	for _, f := range msg.Fields {
+		comment := string(f.Comments.Leading)
+		for _, m := range entityOnlyMarkers {
+			if annotation.HasMarker(comment, m) || m == "@decimal" && strings.Contains(comment, "@decimal(") {
+				return fmt.Errorf("message %s: field %q: %s works only on @entity fields", msg.Desc.Name(), f.GoName, m)
+			}
+		}
+	}
+	for _, nested := range msg.Messages {
+		if err := checkEntityOnlyMarkers(nested); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // describeType はエラーメッセージ用の型の説明（"map<string, Meta>"、"google.protobuf.Timestamp (message)" など）。

@@ -555,3 +555,30 @@ func TestNew_RejectsTimestampNameOrType(t *testing.T) {
 		})
 	}
 }
+
+func TestNew_RejectsEntityOnlyMarkersOutsideEntity(t *testing.T) {
+	// entity ではない message（入れ子も）では効かないので、黙って通さない
+	for _, marker := range []string{"@timestamp", "@required", "@unique", "@decimal(10,2)", "@hidden"} {
+		t.Run(marker, func(t *testing.T) {
+			src := "syntax = \"proto3\";\npackage a.v1;\nmessage Outer {\n  message Inner {\n    // " + marker + "\n    string x_unix = 1;\n  }\n  Inner inner = 1;\n}\n"
+			_, err := New(Params{ImportPath: "example.com/x/server"})(prototest.Files(t, map[string]string{"a/v1/a.proto": src}))
+			want := strings.SplitN(marker, "(", 2)[0]
+			if err == nil || !strings.Contains(err.Error(), want) {
+				t.Errorf("err = %v, want %s は entity だけというエラー", err, want)
+			}
+		})
+	}
+}
+
+func TestNew_RejectsTimestampKey(t *testing.T) {
+	// time.Time を引数に取る SelectBy / SelectByCursor は生成していない
+	for _, marker := range []string{"@unique", "@pk"} {
+		t.Run(marker, func(t *testing.T) {
+			src := "syntax = \"proto3\";\npackage a.v1;\n// @entity\nmessage Post {\n  // @pk\n  int64 id = 1;\n  // " + marker + " @timestamp\n  int64 at_unix = 2;\n}\n"
+			_, err := New(Params{ImportPath: "example.com/x/server"})(prototest.Files(t, map[string]string{"a/v1/a.proto": src}))
+			if err == nil || !strings.Contains(err.Error(), "@timestamp") {
+				t.Errorf("err = %v, want @timestamp と %s の併用のエラー", err, marker)
+			}
+		})
+	}
+}
