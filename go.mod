@@ -4,8 +4,8 @@ go 1.27.3
 
 require (
 	github.com/bufbuild/protocompile v0.14.1
-	github.com/getkin/kin-openapi v0.149.0
-	google.golang.org/protobuf v1.34.2
+	github.com/getkin/kin-openapi v0.152.0
+	google.golang.org/protobuf v1.36.12
 	gopkg.in/yaml.v3 v3.0.1
 )
 
