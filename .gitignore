@@ -11,5 +11,9 @@ Thumbs.db
 # 作業用
 tmp/
 
+# Python のバイトコード（.claude/skills の補助スクリプト）
+__pycache__/
+*.pyc
+
 # go test -coverprofile の出力（SonarQube の解析用）
 coverage.out
