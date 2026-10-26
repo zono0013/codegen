@@ -146,7 +146,7 @@ codegen（このリポジトリ）のルートで実行する。Submodule とし
 | `@email` | `string` field | email 形式バリデーション（`string` 以外はエラー）。Zod は `.email()`、OpenAPI は `format: email` |
 | `@timestamp` | `int64` field | Entity では `time.Time`（名前の `Unix` を除く）。DTO / JSON では `<name>_unix`（Unix 秒） |
 | `@decimal(p,s)` | `string` field | Entity / DTO で `decimal.Decimal`、DB は `numeric(p,s)`、JSON は文字列。`@pk` などとは併用不可 |
-| `@hidden` | entity の field | API に出さない（パスワードのハッシュなど）。Entity（DB の列）には残し、DTO・TS の Zod スキーマ・OpenAPI の schema から外す。出力から外すだけで、入力は防がない（request の body の直下の entity は entity の型で受けるので、そのフィールドも書き込める。下の「未対応」）。`@pk` / `@paging` との併記と、entity ではない message での使用はエラー |
+| `@hidden` | entity の field | API に出さない（パスワードのハッシュなど）。Entity（DB の列）には残し、DTO・TS の Zod スキーマ・OpenAPI の schema から外す。request には entity を置けないので、外から書き込まれることもない。`@pk` / `@paging` との併記と、entity ではない message での使用はエラー |
 | `@http METHOD /path` | rpc | REST のルート（`GET` / `POST` / `PUT` / `PATCH` / `DELETE`）。`{name}` は path param。**無い rpc は Handler も FE 関数も OpenAPI も作らない**。FE から呼ぶ rpc のパスは `/api/` で始める（example/front は `/api/*` だけをバックエンドに転送する） |
 
 ```proto
@@ -192,6 +192,8 @@ Handler・FE の型・OpenAPI は、この規則を `internal/rest` から取る
 
 **Entity の型**: scalar は Input / Output と同じ Go の型にする（`sint32` / `sfixed32` → `int32`、`uint32` / `fixed32` → `uint32`、`float` → `float32`、`double` → `float64`、`bytes` → `[]byte` など）。DB の列は Postgres に符号なしの型が無いので、`uint32` / `uint64` は `bigint`（`uint64` は 2^63 以上の値を入れられない）。`repeated` は `jsonb`。`bytes` は Entity の生成関数で nil を空の値にする（nil は NULL として送られ、NOT NULL の列に入らないため）。
 
+**rpc の message に entity は置けない**: rpc の request / response に `@entity` の message をそのまま使うと、生成のときにエラーにする（rpc ごとの message で包む。response は `GetItemResponse { Item item = 1; }` のように包めば DTO で返る）。request（とそこから辿る message、map の値）が `@entity` の message を含んでいても、同じくエラーにする。entity をそのまま受けると、主キーや `@hidden` のフィールドまで外から書けてしまう（一括代入）。request は scalar のフィールドを並べて書き、Usecase で entity を組み立てる。
+
 **JSON の型**: `encoding/json` 基準（protojson ではない）。int64 も数値、キーは proto のフィールド名（snake_case）。
 
 **Go の名前**: フィールドは protoc-gen-go と同じ名前にし、頭字語の単語（`ID` / `UUID` / `URL` / `API` / `IP` など。golint の一覧と同じ）を大文字にする（`community_uuid` → `CommunityUUID`、`user_id_list` → `UserIDList`）。
@@ -200,7 +202,6 @@ Handler・FE の型・OpenAPI は、この規則を `internal/rest` から取る
 
 - entity の enum・message のフィールド（生成のときにエラーにする）、nested message、別パッケージの message
 - string / 整数 / bool 以外（float / double / bytes / enum など）の path param
-- request の body の直下に entity を含める（Go の Input は entity の型で受けるので、JSON のキーが DTO・OpenAPI・TS と合わない。非 entity message の中の entity は DTO で受ける）
 - FE の GET 関数は、path 以外の全フィールドを query に載せる型になっている（Handler は scalar しか読まない）
 
 ## OpenAPI の出力
