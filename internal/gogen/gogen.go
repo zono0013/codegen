@@ -194,6 +194,12 @@ func generate(files []*protogen.File, params Params) (map[string][]byte, error) 
 			if e != nil {
 				entities = append(entities, e)
 				entityByMsg[msg.Desc.FullName()] = e
+				continue
+			}
+			for _, fd := range msg.Fields {
+				if rest.IsHidden(fd) {
+					return nil, fmt.Errorf("message %s: field %q: @hidden works only on @entity fields", msg.Desc.Name(), fd.GoName)
+				}
 			}
 		}
 	}
@@ -337,6 +343,10 @@ func parseEntity(msg *protogen.Message) (*entity, error) {
 			if spec.hasKeyMarker() {
 				return nil, fmt.Errorf("message %s: field %q: @decimal cannot be combined with @pk/@unique/@email/@required/@timestamp/@paging", name, f.GoName)
 			}
+		}
+		// 主キー・cursor の基準を出さないと、クライアントは取得や次のページに渡す値を持てない
+		if spec.IsHidden && (spec.IsPK || isPaging) {
+			return nil, fmt.Errorf("message %s: field %q: @hidden cannot be combined with @pk/@paging", name, f.GoName)
 		}
 		if spec.IsList && spec.hasKeyMarker() {
 			return nil, fmt.Errorf("message %s: field %q: `repeated` cannot be combined with @pk/@unique/@email/@required/@timestamp/@paging in @entity", name, f.GoName)

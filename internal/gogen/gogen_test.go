@@ -366,3 +366,35 @@ service UserService {
 		t.Errorf("DTO から @hidden 以外のフィールドまで消えた:\n%s", dto)
 	}
 }
+
+func TestNew_RejectsMisplacedHidden(t *testing.T) {
+	// API として使えなくなる組み合わせ、効かない場所の @hidden は、黙って通さずエラーにする
+	for name, src := range map[string]string{
+		// 主キーが出ないと、クライアントは GET /x/{id} に渡す値を持てない
+		"@pk": `// @entity
+message Acct {
+  // @pk @hidden
+  string id = 1;
+}`,
+		// cursor の基準が出ないと、次のページを取れない
+		"@paging": `// @entity
+message Acct {
+  // @pk
+  string id = 1;
+  // @unique @paging @hidden
+  int64 seq = 2;
+}`,
+		// entity ではない message では効かない（出したくないつもりで付けたものが出てしまう）
+		"非 entity": `message Plain {
+  // @hidden
+  string note = 1;
+}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := New(Params{ImportPath: "example.com/x/server"})(prototest.Files(t, map[string]string{"a/v1/a.proto": "syntax = \"proto3\";\npackage a.v1;\n" + src + "\n"}))
+			if err == nil || !strings.Contains(err.Error(), "@hidden") {
+				t.Errorf("err = %v, want @hidden についてのエラー", err)
+			}
+		})
+	}
+}
