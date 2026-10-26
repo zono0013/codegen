@@ -25,6 +25,12 @@ func New{{.Name}}(
 {{- end}}
 ) (*{{.Name}}, error) {
 {{- range .Fields}}
+{{- if eq .GoType "[]byte"}}
+	// nil は SQL の NULL として送られ、NOT NULL の列に入らないので、空の値にする
+	if {{.ParamName}} == nil {
+		{{.ParamName}} = []byte{}
+	}
+{{- end}}
 {{- if and .IsPK (eq .GoType "string")}}
 	if {{.ParamName}} == "" {
 		return nil, errors.New("{{.SnakeName}} is required")

@@ -348,6 +348,10 @@ func parseEntity(msg *protogen.Message) (*entity, error) {
 		if spec.IsHidden && (spec.IsPK || isPaging) {
 			return nil, fmt.Errorf("message %s: field %q: @hidden cannot be combined with @pk/@paging", name, f.GoName)
 		}
+		// 検査は文字列を対象にしたもの（trim / 空 / "@" を含むか）なので、ほかの型では生成したコードがコンパイルできない
+		if (spec.IsEmail || spec.IsRequired) && spec.ProtoType != "string" {
+			return nil, fmt.Errorf("message %s: field %q: @email/@required requires proto type \"string\" but got %q", name, f.GoName, spec.ProtoType)
+		}
 		if spec.IsList && spec.hasKeyMarker() {
 			return nil, fmt.Errorf("message %s: field %q: `repeated` cannot be combined with @pk/@unique/@email/@required/@timestamp/@paging in @entity", name, f.GoName)
 		}
@@ -369,7 +373,7 @@ func parseEntity(msg *protogen.Message) (*entity, error) {
 		default:
 			goType, ok := entityScalarGoType(f.Desc.Kind())
 			if !ok {
-				return nil, fmt.Errorf("message %s: field %q: %s is not supported in @entity (use a scalar type)", name, f.GoName, spec.ProtoType)
+				return nil, fmt.Errorf("message %s: field %q: %s is not supported in @entity (use a scalar type)", name, f.GoName, describeType(f))
 			}
 			spec.GoType = listPrefix + goType
 		}
@@ -652,6 +656,19 @@ func scalarParse(goType string) (format, conv string) {
 		return "strconv.ParseUint(%s, 10, 64)", ""
 	}
 	return "", ""
+}
+
+// describeType はエラーメッセージ用の型の説明（"map<string, Meta>"、"google.protobuf.Timestamp (message)" など）。
+func describeType(f *protogen.Field) string {
+	switch {
+	case f.Desc.IsMap():
+		return fmt.Sprintf("map<%s, %s>", describeType(f.Message.Fields[0]), describeType(f.Message.Fields[1]))
+	case f.Message != nil:
+		return fmt.Sprintf("%q (message)", f.Message.Desc.FullName())
+	case f.Enum != nil:
+		return fmt.Sprintf("%q (enum)", f.Enum.Desc.FullName())
+	}
+	return f.Desc.Kind().String()
 }
 
 // entityScalarGoType は Entity のフィールドの Go 型。Input / Output（goTypeFromKind）と同じ型にする。

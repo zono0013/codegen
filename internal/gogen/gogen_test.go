@@ -446,9 +446,38 @@ message Metric {
 }
 `
 			_, err := New(Params{ImportPath: "example.com/x/server"})(prototest.Files(t, map[string]string{"metric/v1/metric.proto": src}))
-			if err == nil || !strings.Contains(err.Error(), "Metric") {
+			if err == nil || !strings.Contains(err.Error(), "Metric") || !strings.Contains(err.Error(), "metric.v1.") {
 				t.Errorf("err = %v, want 対応していない型のエラー（どの message のどのフィールドか）", err)
 			}
 		})
+	}
+}
+
+func TestNew_RejectsStringValidationOnNonString(t *testing.T) {
+	// @email / @required は文字列の検査なので、ほかの型に付けると生成したコードがコンパイルできない
+	for _, marker := range []string{"@email", "@required"} {
+		t.Run(marker, func(t *testing.T) {
+			src := "syntax = \"proto3\";\npackage a.v1;\n// @entity\nmessage Acct {\n  // @pk\n  string id = 1;\n  // " + marker + "\n  bytes mail = 2;\n}\n"
+			_, err := New(Params{ImportPath: "example.com/x/server"})(prototest.Files(t, map[string]string{"a/v1/a.proto": src}))
+			if err == nil || !strings.Contains(err.Error(), marker) {
+				t.Errorf("err = %v, want %s は string だけというエラー", err, marker)
+			}
+		})
+	}
+}
+
+func TestGenerate_NilBytesBecomesEmpty(t *testing.T) {
+	// nil の []byte は NULL として送られ、NOT NULL の列に入らない
+	files := prototest.Generate(t, map[string]string{"a/v1/a.proto": `syntax = "proto3";
+package a.v1;
+// @entity
+message Blob {
+  // @pk
+  int64 id = 1;
+  bytes data = 2;
+}
+`}, New(Params{ImportPath: "example.com/x/server"}))
+	if src := strings.Join(strings.Fields(files["internal/domain/entity/blob.gen.go"]), " "); !strings.Contains(src, "if data == nil { data = []byte{} }") {
+		t.Errorf("nil の []byte を空にしていない:\n%s", src)
 	}
 }
