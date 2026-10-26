@@ -203,11 +203,20 @@ jobs:
             bool force = 2;
           }
           message DeleteBadgeResponse {}
+          // Output の中の entity（DTO にする）
+          message GetRandomTagsRequest {}
+          message GetRandomTagsResponse {
+            string message = 1;
+            repeated Tag tags = 2;
+            map<string, Tag> by_name = 3;
+          }
           service TagService {
             // @http GET /api/tags/{id}
             rpc GetTag(GetTagRequest) returns (GetTagResponse);
             // @http DELETE /api/badges/{id}/{force}
             rpc DeleteBadge(DeleteBadgeRequest) returns (DeleteBadgeResponse);
+            // @http GET /api/tags/random
+            rpc GetRandomTags(GetRandomTagsRequest) returns (GetRandomTagsResponse);
           }
           PROTO
       - name: 生成と検査

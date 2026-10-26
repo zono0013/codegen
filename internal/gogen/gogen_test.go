@@ -193,3 +193,48 @@ func TestGenerate_StringPathParamNeedsNoStrconv(t *testing.T) {
 		t.Errorf("文字列の path param はそのまま読み、strconv を import しない:\n%s", src)
 	}
 }
+
+func TestGenerate_OutputEntityIsDTO(t *testing.T) {
+	// Output の中の entity も DTO にする。entity には json タグが無いので、そのまま JSON にすると
+	// キーが Go のフィールド名（ID / Name）になり、OpenAPI・TS のスキーマ（snake_case）と食い違う
+	files := prototest.Generate(t, map[string]string{"tag/v1/tag.proto": `syntax = "proto3";
+package tag.v1;
+// @entity
+message Tag {
+  // @pk
+  int64 id = 1;
+  string name = 2;
+}
+message TagGroup {
+  string label = 1;
+  Tag top = 2;
+  map<string, Tag> by_name = 3;
+}
+message GetRandomTagsRequest {}
+message GetRandomTagsResponse {
+  string message = 1;
+  repeated Tag tags = 2;
+  TagGroup group = 3;
+}
+service TagService {
+  // @http GET /api/tags/random
+  rpc GetRandomTags(GetRandomTagsRequest) returns (GetRandomTagsResponse);
+}
+`}, New(Params{ImportPath: "example.com/x/server"}))
+	src := files["internal/usecase/tag_usecase_interface.gen.go"]
+	// テストでは gofmt を通さないので、空白の数は見ない
+	flat := strings.Join(strings.Fields(src), " ")
+	for _, want := range []string{
+		"Tags []*dto.TagDTO `json:\"tags\"`",
+		"Top *dto.TagDTO",
+		"ByName map[string]*dto.TagDTO",
+		`"example.com/x/server/internal/dto"`,
+	} {
+		if !strings.Contains(flat, want) {
+			t.Errorf("%q が無い:\n%s", want, src)
+		}
+	}
+	if strings.Contains(src, "entity.") {
+		t.Errorf("Output が entity を参照している:\n%s", src)
+	}
+}

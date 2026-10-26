@@ -6,7 +6,7 @@ import (
 {{if .AnyUsesEntity}}
 	"{{importPath}}/internal/domain/entity"
 {{end}}
-{{if .AnyReturnsEntity}}
+{{if .NeedsDTO}}
 	"{{importPath}}/internal/dto"
 {{end}}
 )
