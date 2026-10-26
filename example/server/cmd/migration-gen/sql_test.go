@@ -66,6 +66,32 @@ func TestBuildSchemas_IntegerPKIsIdentity(t *testing.T) {
 	}
 }
 
+type scalarRow struct {
+	ID  int64   `gorm:"column:id;primaryKey"`
+	U16 uint16  `gorm:"column:u16;not null"`
+	U32 uint32  `gorm:"column:u32;not null"`
+	U64 uint64  `gorm:"column:u64;not null"`
+	F32 float32 `gorm:"column:f32;not null"`
+	F64 float64 `gorm:"column:f64;not null"`
+	B   []byte  `gorm:"column:b;not null"`
+}
+
+func TestBuildSchemas_ScalarTypes(t *testing.T) {
+	tables, err := buildSchemas([]any{&scalarRow{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cols := tables["scalar_rows"].Columns
+	for name, want := range map[string]string{
+		// uint32 は integer に収まらない
+		"u16": "integer", "u32": "bigint", "u64": "bigint", "f32": "real", "f64": "double precision", "b": "bytea",
+	} {
+		if got := cols[name].SQLType; got != want {
+			t.Errorf("%s: SQL の型 = %q, want %q", name, got, want)
+		}
+	}
+}
+
 func TestEmitCreate_IdentityColumn(t *testing.T) {
 	sql := emitSQL(tableChange{Table: "tags", Kind: changeCreate, NewTable: &tableSchema{
 		Name:    "tags",

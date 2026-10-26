@@ -348,6 +348,10 @@ func parseEntity(msg *protogen.Message) (*entity, error) {
 		if spec.IsHidden && (spec.IsPK || isPaging) {
 			return nil, fmt.Errorf("message %s: field %q: @hidden cannot be combined with @pk/@paging", name, f.GoName)
 		}
+		// 検査は文字列を対象にしたもの（trim / 空 / "@" を含むか）なので、ほかの型では生成したコードがコンパイルできない
+		if (spec.IsEmail || spec.IsRequired) && spec.ProtoType != "string" {
+			return nil, fmt.Errorf("message %s: field %q: @email/@required requires proto type \"string\" but got %q", name, f.GoName, spec.ProtoType)
+		}
 		if spec.IsList && spec.hasKeyMarker() {
 			return nil, fmt.Errorf("message %s: field %q: `repeated` cannot be combined with @pk/@unique/@email/@required/@timestamp/@paging in @entity", name, f.GoName)
 		}
@@ -366,10 +370,12 @@ func parseEntity(msg *protogen.Message) (*entity, error) {
 			spec.SnakeName = naming.ToSnake(raw)
 		case spec.IsDecimal:
 			spec.GoType = listPrefix + "decimal.Decimal"
-		case slices.Contains([]string{"string", "int32", "int64", "bool"}, spec.ProtoType):
-			spec.GoType = listPrefix + spec.ProtoType
 		default:
-			spec.GoType = listPrefix + "string"
+			goType, ok := entityScalarGoType(f.Desc.Kind())
+			if !ok {
+				return nil, fmt.Errorf("message %s: field %q: %s is not supported in @entity (use a scalar type)", name, f.GoName, describeType(f))
+			}
+			spec.GoType = listPrefix + goType
 		}
 
 		e.Fields = append(e.Fields, spec)
@@ -650,6 +656,45 @@ func scalarParse(goType string) (format, conv string) {
 		return "strconv.ParseUint(%s, 10, 64)", ""
 	}
 	return "", ""
+}
+
+// describeType はエラーメッセージ用の型の説明（"map<string, Meta>"、"google.protobuf.Timestamp (message)" など）。
+func describeType(f *protogen.Field) string {
+	switch {
+	case f.Desc.IsMap():
+		return fmt.Sprintf("map<%s, %s>", describeType(f.Message.Fields[0]), describeType(f.Message.Fields[1]))
+	case f.Message != nil:
+		return fmt.Sprintf("%q (message)", f.Message.Desc.FullName())
+	case f.Enum != nil:
+		return fmt.Sprintf("%q (enum)", f.Enum.Desc.FullName())
+	}
+	return f.Desc.Kind().String()
+}
+
+// entityScalarGoType は Entity のフィールドの Go 型。Input / Output（goTypeFromKind）と同じ型にする。
+// enum・message は DB の列にどう載せるかが決まっていないので対応しない。
+func entityScalarGoType(k protoreflect.Kind) (string, bool) {
+	switch k {
+	case protoreflect.StringKind:
+		return "string", true
+	case protoreflect.BoolKind:
+		return "bool", true
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+		return "int32", true
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+		return "int64", true
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+		return "uint32", true
+	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return "uint64", true
+	case protoreflect.FloatKind:
+		return "float32", true
+	case protoreflect.DoubleKind:
+		return "float64", true
+	case protoreflect.BytesKind:
+		return "[]byte", true
+	}
+	return "", false
 }
 
 func goTypeFromKind(f *protogen.Field, entities map[protoreflect.FullName]*entity) string {
