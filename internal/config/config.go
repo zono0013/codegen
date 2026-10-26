@@ -55,7 +55,7 @@ func Load(root string) (Config, error) {
 	p := filepath.Join(root, FileName)
 	data, err := os.ReadFile(p)
 	if err != nil {
-		return Config{}, fmt.Errorf("%s を読めない（生成先のプロジェクトのルートに置く。書式は codegen の docs/spec.md）: %w", p, err)
+		return Config{}, fmt.Errorf("%s を読めない（生成先のプロジェクトのルートに手で書く。例は codegen の README、仕様は docs/spec.md）: %w", p, err)
 	}
 	cfg, err := Parse(data)
 	if err != nil {
