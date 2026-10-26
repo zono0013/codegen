@@ -17,7 +17,7 @@ description: codegen の変更をコミットし、Pull Request を出す。ブ�
 ## 2. 出す前の確認
 
 ```bash
-test -z "$(gofmt -l cmd internal example/server)"   # CI の codegen ジョブと同じ（スクリプトで Go を書き換えたときに崩れやすい）
+gofmt -l cmd internal example/server example_test.go   # 何も出なければよい（CI の gofmt と同じ対象。スクリプトで Go を書き換えたときに崩れやすい）
 make test          # ジェネレータと example/server（-count=1 でキャッシュを使わない）
 make proto-check   # example/ の生成物が最新か
 ```
