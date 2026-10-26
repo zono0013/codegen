@@ -266,3 +266,35 @@ func TestNormalizeInitialisms(t *testing.T) {
 		}
 	}
 }
+
+func TestGenerate_TimestampWithInitialism(t *testing.T) {
+	// @timestamp の名前の途中に頭字語があっても、列名と DTO の JSON キーは proto の名前のまま（TS・OpenAPI と同じ）
+	files := prototest.Generate(t, map[string]string{"device/v1/device.proto": `syntax = "proto3";
+package device.v1;
+// @entity
+message Device {
+  // @pk
+  string device_uuid = 1;
+  // @timestamp
+  int64 last_api_call_at_unix = 2;
+  // @timestamp
+  int64 created_at_unix = 3;
+}
+`}, New(Params{ImportPath: "example.com/x/server"}))
+	flat := func(s string) string { return strings.Join(strings.Fields(s), " ") }
+	ent := flat(files["internal/domain/entity/device.gen.go"])
+	for _, want := range []string{
+		"DeviceUUID string `gorm:\"column:device_uuid;primaryKey\"`",
+		"LastAPICallAt time.Time `gorm:\"column:last_api_call_at;not null\"`",
+		"CreatedAt time.Time `gorm:\"column:created_at;not null\"`",
+		// 引数名はほかのフィールドと同じく正規化の前の名前から作る（apiKey と同じ形）
+		"lastApiCallAt time.Time,",
+	} {
+		if !strings.Contains(ent, want) {
+			t.Errorf("entity に %q が無い:\n%s", want, ent)
+		}
+	}
+	if dto := flat(files["internal/dto/device.gen.go"]); !strings.Contains(dto, "`json:\"last_api_call_at_unix\"`") {
+		t.Errorf("DTO の JSON キーが last_api_call_at_unix になっていない:\n%s", dto)
+	}
+}

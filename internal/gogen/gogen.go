@@ -347,10 +347,11 @@ func parseEntity(msg *protogen.Message) (*entity, error) {
 		switch {
 		case spec.IsTimestamp:
 			spec.GoType = "time.Time"
-			base := strings.TrimSuffix(spec.GoName, "Unix")
-			spec.GoName = base
-			spec.ParamName = lowerFirst(base)
-			spec.SnakeName = naming.ToSnake(base)
+			// 正規化（LastAPICallAt）の前の名前から作る。正規化後の名前を snake_case にすると last_a_p_i_call_at になる
+			raw := strings.TrimSuffix(f.GoName, "Unix")
+			spec.GoName = normalizeInitialisms(raw)
+			spec.ParamName = lowerFirst(raw)
+			spec.SnakeName = naming.ToSnake(raw)
 		case spec.IsDecimal:
 			spec.GoType = listPrefix + "decimal.Decimal"
 		case slices.Contains([]string{"string", "int32", "int64", "bool"}, spec.ProtoType):
