@@ -210,3 +210,24 @@ message M {
 		t.Errorf("DTOFieldName = %v, want %v", got, want)
 	}
 }
+
+func TestIsHidden(t *testing.T) {
+	files := prototest.Files(t, map[string]string{"h/v1/h.proto": `syntax = "proto3";
+package h.v1;
+// @entity
+message User {
+  // @pk
+  string id = 1;
+  // ハッシュ
+  // @hidden
+  bytes password = 2;
+}
+`})
+	fields := files[0].Messages[0].Fields
+	if IsHidden(fields[0]) {
+		t.Error("@hidden の無い id を hidden と判定した")
+	}
+	if !IsHidden(fields[1]) {
+		t.Error("@hidden の password を hidden と判定しなかった")
+	}
+}
