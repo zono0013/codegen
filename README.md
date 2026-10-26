@@ -19,7 +19,7 @@ make -C codegen proto-gen
 
 clone し直すときは `git clone --recursive`、または clone の後に `git submodule update --init`。
 
-すでに server や front があるプロジェクトに入れるときは、サンプルをコピーせずに `codegen.yaml` だけを書く。手順と注意点（出力先、Gin などのルーター、Postgres 以外の DB）は [`docs/adopting.md`](docs/adopting.md)。
+すでに server や front があるプロジェクトに入れるときは、`CONFIG_ONLY=1` を付けて、サンプルをコピーせずに `codegen.yaml` だけを書く。手順と注意点（出力先、Gin などのルーター、Postgres 以外の DB）は [`docs/adopting.md`](docs/adopting.md)。
 
 ### 使う側のリポジトリの形
 

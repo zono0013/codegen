@@ -1,6 +1,6 @@
 # 既存のプロジェクトに導入する
 
-`codegen-init` は `example/` のサンプル一式（`server/` の手書き層、`front/` の画面、Makefile など）をコピーする。すでに server や front があるプロジェクトでは、サンプルはコピーせず、`codegen.yaml` だけを書いて生成物を取り込む。
+`codegen-init` は、そのままだと `example/` のサンプル一式（`server/` の手書き層、`front/` の画面、Makefile など）をコピーする。すでに server や front があるプロジェクトでは `CONFIG_ONLY=1` を付けて、サンプルはコピーせず `codegen.yaml` だけを書いて生成物を取り込む。
 
 ここでは、生成物を既存のコードにつなぐときに気をつけることをまとめる。生成される内容そのものは [`spec.md`](spec.md) を見る。
 
@@ -8,18 +8,25 @@
 
 ```bash
 git submodule add https://github.com/zono0013/codegen codegen
+
+# サンプルはコピーせず、codegen.yaml だけを書いて生成する
+make -C codegen codegen-init CONFIG_ONLY=1 SERVER_OUT=server FRONT_OUT=client/src/generated CLIENT=@/utils/client TITLE="My API"
 ```
 
-ルートに `codegen.yaml` を書く（パスはこのファイルからの相対）。
+- `SERVER_OUT`: 既存の Go のコードがあるディレクトリ（下の「server の出力先」を見る）
+- `FRONT_OUT`: 生成した TS の置き場所
+- `CLIENT`: 既存の API クライアント（下の「front の API クライアント」を見る）
+
+省略したものはサンプルと同じ値（`server`、`front/generate`、`@/shared/api/apiClient`）になる。書き出される `codegen.yaml` は次のようになる。手で書いてもよい（パスはこのファイルからの相対）。
 
 ```yaml
 proto: proto
 targets:
   server:
-    out: server                 # 既存の Go のコードがあるディレクトリ（下の「server の出力先」を見る）
+    out: server
   front:
-    out: client/src/generated   # 生成した TS の置き場所
-    client: "@/utils/client"    # 既存の API クライアント（下の「front の API クライアント」を見る）
+    out: client/src/generated
+    client: '@/utils/client'
   openapi:
     out: docs/openapi
     title: My API

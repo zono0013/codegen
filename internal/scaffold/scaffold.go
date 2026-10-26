@@ -16,6 +16,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/zono0013/codegen/internal/config"
 	"github.com/zono0013/codegen/internal/pipeline"
 )
@@ -236,4 +238,25 @@ func WriteConfig(opts Options, title, version string) error {
 		return fmt.Errorf("書き出す codegen.yaml が不正: %w", err)
 	}
 	return os.WriteFile(dst, []byte(s), 0o644)
+}
+
+// WriteNewConfig は cfg を To の codegen.yaml に書き出す。サンプルをコピーせずに既存のプロジェクトへ入れるとき（init -config-only）に使う。
+func WriteNewConfig(opts Options, cfg config.Config) error {
+	if err := CheckConfigAbsent(opts); err != nil {
+		return err
+	}
+	var b bytes.Buffer
+	b.WriteString("# codegen の設定。パスはすべてこのファイルがあるディレクトリからの相対（仕様は " + opts.CodegenDir + "/docs/spec.md）。\n")
+	enc := yaml.NewEncoder(&b)
+	enc.SetIndent(2)
+	if err := enc.Encode(cfg); err != nil {
+		return err
+	}
+	if err := enc.Close(); err != nil {
+		return err
+	}
+	if _, err := config.Parse(b.Bytes()); err != nil {
+		return fmt.Errorf("書き出す codegen.yaml が不正: %w", err)
+	}
+	return os.WriteFile(filepath.Join(opts.To, config.FileName), b.Bytes(), 0o644)
 }

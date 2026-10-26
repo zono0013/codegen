@@ -221,6 +221,36 @@ jobs:
           # サービスが増えると手書きの配線（cmd/api の di.NewHandlers の引数）が合わなくなるので、生成物のパッケージだけを確かめる
           cd server && go vet ./internal/... ./pkg/... ./cmd/migration-gen/
           cd ../front && pnpm typecheck
+      - name: 既存のプロジェクトに CONFIG_ONLY=1 で入れる（サンプルをコピーしない）
+        run: |
+          git init -b main existing
+          cd existing
+          git -c protocol.file.allow=always submodule add "$GITHUB_WORKSPACE/codegen-src" codegen
+          mkdir -p api proto/note/v1
+          printf 'module example.com/hub/api\n\ngo 1.24\n' > api/go.mod
+          make -C codegen codegen-init CONFIG_ONLY=1 SERVER_OUT=api FRONT_OUT=web/generated CLIENT=@/client TITLE="Hub API"
+          test ! -e front && test ! -e server && test ! -e api/cmd/api
+          cat > proto/note/v1/note.proto <<'PROTO'
+          syntax = "proto3";
+          package note.v1;
+          // @entity
+          message Note {
+            // @pk
+            int64 id = 1;
+            // @required
+            string body = 2;
+          }
+          message GetNoteRequest { int64 id = 1; }
+          message GetNoteResponse { Note note = 1; }
+          service NoteService {
+            // @http GET /api/notes/{id}
+            rpc GetNote(GetNoteRequest) returns (GetNoteResponse);
+          }
+          PROTO
+          make -C codegen proto-gen
+          make -C codegen proto-check
+          cd api && go mod tidy && go vet ./...
+          test -z "$(git -C ../codegen status --porcelain)"
       - name: Submodule の中が変わっていないこと（どの手順も codegen/ に書き込まない）
         working-directory: app
         run: |

@@ -25,10 +25,11 @@ proto-check: ## 生成物が proto・ジェネレータと一致し、OpenAPI �
 proto-clean: ## 生成物を全部削除（1 行目に生成マーカーを持つファイルだけ）
 	go run ./cmd/gen clean -root "$(ROOT)"
 
-codegen-init: ## Submodule として取り込んだ側で初回だけ実行: サンプルをコピーし codegen.yaml を作って生成（MODULE=<server の Go module> TITLE=<API 名>）
+codegen-init: ## Submodule として取り込んだ側で初回だけ実行: サンプルをコピーし codegen.yaml を作って生成（MODULE=<server の Go module> TITLE=<API 名>。既存のプロジェクトなら CONFIG_ONLY=1 [SERVER_OUT= FRONT_OUT= CLIENT=]）
 	@if [ -z "$(SUPERPROJECT)" ] && [ "$(origin ROOT)" != "command line" ]; then \
 		echo "codegen-init は codegen を Submodule として取り込んだリポジトリで実行する（make -C codegen codegen-init MODULE=...）"; exit 1; fi
-	go run ./cmd/gen init -root "$(ROOT)" -codegen . $(if $(MODULE),-module "$(MODULE)") $(if $(TITLE),-title "$(TITLE)")
+	go run ./cmd/gen init -root "$(ROOT)" -codegen . $(if $(MODULE),-module "$(MODULE)") $(if $(TITLE),-title "$(TITLE)") \
+		$(if $(CONFIG_ONLY),-config-only) $(if $(SERVER_OUT),-server-out "$(SERVER_OUT)") $(if $(FRONT_OUT),-front-out "$(FRONT_OUT)") $(if $(CLIENT),-client "$(CLIENT)")
 
 test: ## ジェネレータのテスト（example/ の生成物が最新かも含む）と、生成したランタイムを含む example/server のビルド・テスト
 	go test -count=1 ./...

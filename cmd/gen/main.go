@@ -34,7 +34,8 @@ const usage = `使い方: gen [generate|check|clean|init] [-root DIR] [init の�
   check     生成物が最新か、OpenAPI と Handler のルートが一致するかを検査する（ファイルには触れない）
   clean     生成物を全部消す
   init      codegen を Submodule として取り込んだプロジェクトに、サンプル（example/）を初回だけコピーし、
-            codegen.yaml を書き出して生成する。既にあるファイルは -force が無い限り上書きしない
+            codegen.yaml を書き出して生成する。既にあるファイルは -force が無い限り上書きしない。
+            -config-only なら、サンプルはコピーせず codegen.yaml だけを書く（既存のプロジェクトに入れるとき）
 
 `
 
@@ -61,6 +62,12 @@ func run(args []string, stdout io.Writer) error {
 		fset.StringVar(&initOpts.version, "version", "0.1.0", "OpenAPI の info.version")
 		fset.StringVar(&initOpts.codegen, "codegen", ".", "codegen（このリポジトリ）の場所。-root の中にあること")
 		fset.BoolVar(&initOpts.force, "force", false, "既にあるファイルと codegen.yaml も上書きする")
+		fset.BoolVar(&initOpts.configOnly, "config-only", false, "サンプルをコピーせず、codegen.yaml だけを書いて生成する（既存のプロジェクトに入れるとき）")
+		fset.StringVar(&initOpts.proto, "proto", "", "-config-only: proto を置くディレクトリ（省略時はサンプルと同じ proto）")
+		fset.StringVar(&initOpts.serverOut, "server-out", "", "-config-only: server の生成先。go.mod のある module の中（省略時は server）")
+		fset.StringVar(&initOpts.frontOut, "front-out", "", "-config-only: front の生成先（省略時は front/generate）")
+		fset.StringVar(&initOpts.client, "client", "", "-config-only: 生成した API 関数が import する apiClient の指定子（省略時は @/shared/api/apiClient）")
+		fset.StringVar(&initOpts.openapiOut, "openapi-out", "", "-config-only: OpenAPI の生成先（省略時は docs/openapi）")
 	}
 	fset.Usage = func() {
 		fmt.Fprint(fset.Output(), usage)
@@ -165,6 +172,9 @@ func clean(root string, stdout io.Writer) error {
 type initOptions struct {
 	module, title, version, codegen string
 	force                           bool
+	// -config-only のときだけ使う。空ならサンプルの codegen.yaml の値
+	configOnly                                     bool
+	proto, serverOut, frontOut, client, openapiOut string
 }
 
 func runInit(root string, o initOptions, stdout io.Writer) error {
@@ -197,6 +207,9 @@ func runInit(root string, o initOptions, stdout io.Writer) error {
 	if err := scaffold.CheckConfigAbsent(opts); err != nil {
 		return err
 	}
+	if o.configOnly {
+		return runInitConfigOnly(absRoot, opts, sample, o, stdout)
+	}
 
 	if o.module == "" && isTerminal(os.Stdin) {
 		o.module = prompt(stdout, "server の Go module（例: github.com/you/app/server）: ")
@@ -204,14 +217,7 @@ func runInit(root string, o initOptions, stdout io.Writer) error {
 	if o.module == "" {
 		return errors.New("-module（server の Go module）が必要")
 	}
-	if o.title == "" {
-		o.title = filepath.Base(absRoot) + " API"
-		if isTerminal(os.Stdin) {
-			if s := prompt(stdout, fmt.Sprintf("OpenAPI の title [%s]: ", o.title)); s != "" {
-				o.title = s
-			}
-		}
-	}
+	o.title = askTitle(absRoot, o.title, stdout)
 
 	opts.ToModule = o.module
 
@@ -246,6 +252,68 @@ func runInit(root string, o initOptions, stdout io.Writer) error {
   server/migrations/ の create_articles / create_users と .snapshot.json
   front/app/ と front/features/ の画面
 `, filepath.ToSlash(codegenDir))
+	return nil
+}
+
+// askTitle は OpenAPI の title を決める。省略されたら「<ルートのディレクトリ名> API」にし、端末からなら聞く。
+func askTitle(absRoot, title string, stdout io.Writer) string {
+	if title != "" {
+		return title
+	}
+	title = filepath.Base(absRoot) + " API"
+	if isTerminal(os.Stdin) {
+		if s := prompt(stdout, fmt.Sprintf("OpenAPI の title [%s]: ", title)); s != "" {
+			title = s
+		}
+	}
+	return title
+}
+
+// runInitConfigOnly はサンプルをコピーせず、codegen.yaml だけを書いて生成する。
+// 出力先などはフラグで受け取り、省略されたものはサンプルの codegen.yaml の値にする。
+func runInitConfigOnly(absRoot string, opts scaffold.Options, sample config.Config, o initOptions, stdout io.Writer) error {
+	if o.module != "" {
+		return errors.New("-config-only では -module を使わない（server の import path は -server-out の go.mod から決まる）")
+	}
+	cfg := sample
+	for _, f := range []struct {
+		dst *string
+		v   string
+	}{
+		{&cfg.Proto, o.proto},
+		{&cfg.Targets.Server.Out, o.serverOut},
+		{&cfg.Targets.Front.Out, o.frontOut},
+		{&cfg.Targets.Front.Client, o.client},
+		{&cfg.Targets.OpenAPI.Out, o.openapiOut},
+	} {
+		if f.v != "" {
+			*f.dst = f.v
+		}
+	}
+	cfg.Targets.OpenAPI.Title = askTitle(absRoot, o.title, stdout)
+	cfg.Targets.OpenAPI.Version = o.version
+
+	if err := scaffold.WriteNewConfig(opts, cfg); err != nil {
+		return err
+	}
+	// 出力先が使えない（go.mod が無いなど）なら、初期化済みにせず、直して再実行できるようにする
+	if _, err := config.Load(absRoot); err != nil {
+		_ = os.Remove(filepath.Join(absRoot, config.FileName))
+		return err
+	}
+	if err := os.MkdirAll(filepath.Join(absRoot, filepath.FromSlash(cfg.Proto)), 0o755); err != nil {
+		return err
+	}
+	fmt.Fprintln(stdout, "✓ codegen.yaml を書き出した（サンプルはコピーしていない）")
+	if err := generate(absRoot, stdout); err != nil {
+		return err
+	}
+	fmt.Fprintf(stdout, `
+次にやること:
+  %s/ に proto を書いて make -C %s proto-gen
+  (cd %s && go mod tidy)   生成物が使うライブラリを go.mod に入れる
+  既存のコードへのつなぎ方は %s/docs/adopting.md
+`, cfg.Proto, opts.CodegenDir, cfg.Targets.Server.Out, opts.CodegenDir)
 	return nil
 }
 
