@@ -68,9 +68,7 @@ Go ツールチェーンだけで動く（buf / protoc は不要）。
 
 ## 設定ファイル（`codegen.yaml`）
 
-生成先のプロジェクトのルートに置く（このリポジトリでは `example/codegen.yaml`）。使う側が手で書く（雛形を作るコマンドは無い。README の例をコピーする）。無いと `generate` / `check` / `clean` はエラーになる。
-
-codegen が書くのは生成物（1 行目に生成マーカーを持つ `*.gen.*`）だけで、サンプルのコピーや雛形の作成はしない。main・Service / Usecase の実装・apiClient などは使う側が書く（`example/` が見本）。
+生成先のプロジェクトのルートに置く（このリポジトリでは `example/codegen.yaml`）。README の例をもとに手で書く。無いと `generate` / `check` / `clean` はエラーになる。
 
 ```yaml
 proto: proto                     # proto/**/*.proto を置くディレクトリ

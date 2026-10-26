@@ -6,8 +6,6 @@ proto を唯一のソースにして **Go バックエンド + Next.js フロン
 
 ## 使い方（Submodule として取り込む）
 
-codegen が置くのは生成物（`*.gen.*`）だけ。サンプルのコピーや雛形の作成はしない。
-
 ```bash
 # 1. 使う側のリポジトリに codegen/ として取り込む
 git submodule add https://github.com/zono0013/codegen codegen
@@ -41,7 +39,7 @@ clone し直すときは `git clone --recursive`、または clone の後に `gi
 
 ### 生成物の外で用意するもの
 
-生成物は次のものを前提にしている。どれもプロジェクトの方針を含むので、生成せず使う側で書く。書き方は `example/` が見本になる（そのまま写してもよい）。
+生成物は次のものを前提にしている。使う側で書く。書き方は `example/` が見本になる（そのまま写してもよい）。
 
 | 何 | 見本 |
 | --- | --- |
@@ -51,7 +49,7 @@ clone し直すときは `git clone --recursive`、または clone の後に `gi
 | マイグレーションの適用（`go run ./cmd/migration-gen` が SQL を作る。適用は golang-migrate など） | `example/server/Makefile` |
 | front の apiClient（`codegen.yaml` の `targets.front.client` で指定。axios のインスタンスがそのまま使える）と `zod` | `example/front/shared/api/apiClient.ts` |
 
-既存のアプリを置き換えるときも、既存のコードには混ぜず、同じリポジトリの別のディレクトリ（`v2/` など）に別のアプリとして作る。そのディレクトリに `codegen.yaml` を置き、`make -C codegen proto-gen ROOT=$PWD/v2` で生成する。
+リポジトリのルート以外（`v2/` など）を生成先にするときは、そのディレクトリに `codegen.yaml` を置き、`make -C codegen proto-gen ROOT=$PWD/v2` で生成する。
 
 ### 使う側のリポジトリの形
 
@@ -65,7 +63,7 @@ my-app/
 └── docs/openapi/     ← 毎回生成（**/*.gen.yaml）
 ```
 
-`*.gen.*` は `make proto-gen` のたびに書き出す。手で編集しない。Submodule を上げて `make -C codegen proto-gen` すると、codegen の更新に追従する。それ以外のファイルは codegen が触らない。
+`*.gen.*` は `make proto-gen` のたびに書き出す。手で編集しない。Submodule を上げて `make -C codegen proto-gen` すると、codegen の更新に追従する。
 
 **何が生成されるか**（ファイルごとの役割、アノテーション、REST の振る舞い、OpenAPI の構成、ランタイム）は [`docs/spec.md`](docs/spec.md) にまとめてある（正本）。`example/` の `*.gen.*` が実際の出力例。
 
