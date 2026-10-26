@@ -140,8 +140,6 @@ type service struct {
 	UsecaseParamName  string
 	Methods           []method
 	AnyReturnsEntity  bool
-	AnyUsesEntity     bool
-	HandlerUsesEntity bool // Input の entity は handler の body 型にも出るので、usecase 側と別に持つ
 	NeedsDTO          bool // usecase の型が dto を参照するか（entity を返す rpc、Output や非 entity message の中の entity）
 	NonEntityTypes    []outputType
 	NeedsStrconv      bool
@@ -214,6 +212,11 @@ func generate(files []*protogen.File, params Params) (map[string][]byte, error) 
 	var services []service
 	for _, f := range files {
 		for _, svc := range f.Services {
+			for _, m := range svc.Methods {
+				if path, name := entityInMessage(m.Input, entityByMsg, map[*protogen.Message]bool{}); name != "" {
+					return nil, fmt.Errorf("rpc %s: request %s contains @entity %s at %q (write the request as scalar fields)", m.GoName, m.Input.Desc.Name(), name, path)
+				}
+			}
 			s := buildService(svc, entityByMsg)
 			services = append(services, s)
 			snake := strings.TrimSuffix(naming.ToSnake(svc.GoName), "_service")
@@ -460,10 +463,6 @@ func buildService(svc *protogen.Service, entities map[protoreflect.FullName]*ent
 				ScalarGoType:  scalarGoType(f),
 			}
 			in.ParseFormat, in.ParsedConv = scalarParse(in.ScalarGoType)
-			if strings.Contains(goType, "entity.") {
-				s.AnyUsesEntity = true
-				s.HandlerUsesEntity = true
-			}
 			r.collect(f)
 			inputs[f] = in
 			mt.InputFields = append(mt.InputFields, in)
@@ -654,6 +653,29 @@ func scalarParse(goType string) (format, conv string) {
 		return "strconv.ParseUint(%s, 10, 32)", "uint32"
 	case "uint64":
 		return "strconv.ParseUint(%s, 10, 64)", ""
+	}
+	return "", ""
+}
+
+// entityInMessage は msg（とそこから辿る message、map の値）が持つ entity のフィールドを探し、
+// 見つけたらフィールドのパス（"wrap.item"）と entity の名前を返す。request に entity を置くと、
+// 主キーや @hidden のフィールドまで外から書けてしまう（一括代入）ので、生成のときに止める。
+func entityInMessage(msg *protogen.Message, entities map[protoreflect.FullName]*entity, seen map[*protogen.Message]bool) (path, name string) {
+	if seen[msg] {
+		return "", ""
+	}
+	seen[msg] = true
+	for _, f := range msg.Fields {
+		ref := referencedMessage(f)
+		if ref == nil {
+			continue
+		}
+		if e, ok := entities[ref.Desc.FullName()]; ok {
+			return string(f.Desc.Name()), e.Name
+		}
+		if p, n := entityInMessage(ref, entities, seen); n != "" {
+			return string(f.Desc.Name()) + "." + p, n
+		}
 	}
 	return "", ""
 }

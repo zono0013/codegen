@@ -3,9 +3,6 @@ package usecase
 
 import (
 	"context"
-{{if .AnyUsesEntity}}
-	"{{importPath}}/internal/domain/entity"
-{{end}}
 {{if .NeedsDTO}}
 	"{{importPath}}/internal/dto"
 {{end}}

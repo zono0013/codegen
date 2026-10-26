@@ -16,14 +16,9 @@ message Item {
 }
 message GetItemRequest { string id = 1; }
 message GetItemResponse { Item item = 1; }
-// entity を入力に持つ rpc（Handler / Usecase interface が entity を import する分岐を通すため）
-message ImportItemsRequest { repeated Item items = 1; }
-message ImportItemsResponse {}
 service ItemService {
   // @http GET /api/items/{id}
   rpc GetItem(GetItemRequest) returns (GetItemResponse);
-  // @http POST /api/items/import
-  rpc ImportItems(ImportItemsRequest) returns (ImportItemsResponse);
 }
 `
 
@@ -479,5 +474,37 @@ message Blob {
 `}, New(Params{ImportPath: "example.com/x/server"}))
 	if src := strings.Join(strings.Fields(files["internal/domain/entity/blob.gen.go"]), " "); !strings.Contains(src, "if data == nil { data = []byte{} }") {
 		t.Errorf("nil の []byte を空にしていない:\n%s", src)
+	}
+}
+
+func TestNew_RejectsEntityInRequest(t *testing.T) {
+	// request の entity は、主キーや @hidden のフィールドまで外から書けてしまう（一括代入）。
+	// request は scalar を並べて書く
+	for name, req := range map[string]string{
+		"直下":         "message SaveRequest { Item item = 1; }",
+		"repeated":   "message SaveRequest { repeated Item items = 1; }",
+		"map の値":     "message SaveRequest { map<string, Item> items = 1; }",
+		"非 entity の中": "message Wrap { Item item = 1; }\nmessage SaveRequest { Wrap wrap = 1; }",
+	} {
+		t.Run(name, func(t *testing.T) {
+			src := `syntax = "proto3";
+package shop.v1;
+// @entity
+message Item {
+  // @pk
+  string id = 1;
+}
+` + req + `
+message SaveResponse {}
+service ItemService {
+  // @http POST /api/items
+  rpc Save(SaveRequest) returns (SaveResponse);
+}
+`
+			_, err := New(Params{ImportPath: "example.com/x/server"})(prototest.Files(t, map[string]string{"shop/v1/shop.proto": src}))
+			if err == nil || !strings.Contains(err.Error(), "Save") || !strings.Contains(err.Error(), "Item") {
+				t.Errorf("err = %v, want request の entity を指すエラー（rpc と entity の名前）", err)
+			}
+		})
 	}
 }

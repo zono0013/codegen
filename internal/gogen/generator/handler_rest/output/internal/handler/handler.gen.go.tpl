@@ -9,9 +9,6 @@ import (
 {{- end}}
 
 	"{{importPath}}/pkg/util/errs"
-{{- if .HandlerUsesEntity}}
-	"{{importPath}}/internal/domain/entity"
-{{- end}}
 	"{{importPath}}/internal/usecase"
 )
 
