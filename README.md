@@ -2,7 +2,7 @@
 
 proto を唯一のソースにして **Go バックエンド + Next.js フロントエンド + OpenAPI** を生成するジェネレータ。使う側のリポジトリに Git Submodule（`codegen/`）として取り込んで使う。
 
-`proto/**/*.proto` を書いて `make -C codegen proto-gen` を叩くと、Entity / Repository / Mock / Postgres 実装 / DTO / Usecase interface / REST Handler / DI 配線（Go 側）と、Zod スキーマ / 型付き API クライアント（TS 側）、OpenAPI 仕様が生成される。**手書きが残るのは Service と Usecase 実装、そして FE の画面だけ。**
+`proto/**/*.proto` を書いて `make -C codegen proto-gen` を叩くと、Entity / Repository / Mock / Postgres 実装 / DTO / Usecase interface / REST Handler / DI 配線（Go 側）と、Zod スキーマ / 型付き API クライアント（TS 側）、OpenAPI 仕様が生成される。**手書きが残るのは、main の配線、Service と Usecase の実装、FE の画面と apiClient。**
 
 ## 使い方（Submodule として取り込む）
 
@@ -39,7 +39,7 @@ clone し直すときは `git clone --recursive`、または clone の後に `gi
 
 ### 生成物の外で用意するもの
 
-生成物は次のものを前提にしている。使う側で書く。書き方は `example/` が見本になる（そのまま写してもよい）。
+生成物は次のものを前提にしている。使う側で書く。書き方は `example/` が見本になる。example は codegen を `../..` などの相対パスで参照しているので、写すときはそのパスを直す。
 
 | 何 | 見本 |
 | --- | --- |
@@ -47,9 +47,9 @@ clone し直すときは `git clone --recursive`、または clone の後に `gi
 | `main`：DB を開いて `tx.Init(db)`、Repository → Service → Usecase → `di.NewHandlers` と組み立て、`Register(mux)` で ServeMux に登録する | `example/server/cmd/api/main.go` |
 | Service と Usecase の実装（生成された Usecase interface を実装する） | `example/server/internal/domain/service/`、`example/server/internal/usecase/` |
 | マイグレーションの適用（`go run ./cmd/migration-gen` が SQL を作る。適用は golang-migrate など） | `example/server/Makefile` |
-| front の apiClient（`codegen.yaml` の `targets.front.client` で指定。axios のインスタンスがそのまま使える）と `zod` | `example/front/shared/api/apiClient.ts` |
+| front の apiClient（`codegen.yaml` の `targets.front.client` で指定。axios のインスタンスがそのまま使える。期待する形は [`docs/spec.md`](docs/spec.md) の「ランタイム」）と `zod` | `example/front/shared/api/apiClient.ts` |
 
-リポジトリのルート以外（`v2/` など）を生成先にするときは、そのディレクトリに `codegen.yaml` を置き、`make -C codegen proto-gen ROOT=$PWD/v2` で生成する。
+リポジトリのルート以外（`v2/` など）を生成先にするときは、そのディレクトリに `codegen.yaml` と `proto/` を置き（`codegen.yaml` からは自分のディレクトリの外を指せない）、`make -C codegen proto-gen ROOT=$PWD/v2` で生成する。`ROOT` は絶対パスで書く（相対パスは `codegen/` から解決される）。
 
 ### 使う側のリポジトリの形
 
@@ -85,7 +85,7 @@ proto を変えると生成物が変わり、それを使う手書き層がコ�
 
 ## コマンド
 
-使う側では `make -C codegen <target>`。生成先は、Submodule として取り込まれていれば親リポジトリのルート、このリポジトリ単体なら `example/` になる（`ROOT=<dir>` で上書きできる）。
+使う側では `make -C codegen <target>`。生成先は、Submodule として取り込まれていれば親リポジトリのルート、このリポジトリ単体なら `example/` になる（`ROOT=<絶対パス>` で上書きできる）。
 
 | コマンド | 内容 |
 | --- | --- |

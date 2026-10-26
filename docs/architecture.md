@@ -39,7 +39,7 @@ REST Handler（生成）── Usecase interface（生成）
 
 ## スキーマの変更
 
-DB のスキーマは、Entity の `gorm` タグから差分の SQL を作って適用する一本道にしている（`make migration-gen` → `make migrate-up`）。起動時の `AutoMigrate` は使わない。規則は [`spec.md` のマイグレーション](spec.md#マイグレーションmigration-gen)。
+DB のスキーマは、Entity の `gorm` タグから差分の SQL を作って適用する一本道にしている（`go run ./cmd/migration-gen` で SQL を作り、golang-migrate などで適用する）。起動時の `AutoMigrate` は使わない。規則は [`spec.md` のマイグレーション](spec.md#マイグレーションmigration-gen)。
 
 ## 向き・不向き
 

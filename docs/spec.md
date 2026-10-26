@@ -97,9 +97,9 @@ codegen（このリポジトリ）のルートで実行する。Submodule とし
 
 - Submodule として取り込まれていれば、親リポジトリのルート（`git rev-parse --show-superproject-working-tree`）
 - 単体なら `example/`
-- `make ROOT=<dir> ...` で上書きできる
+- `make ROOT=<dir> ...` で上書きできる（`make -C codegen` から呼ぶときは絶対パスで。相対パスは codegen のディレクトリから解決される）
 
-`server` からは `make proto-gen`、`front` からは `pnpm gen` でも呼べる（どちらも codegen の `make proto-gen` を呼ぶ）。
+`example/` では、`server` から `make proto-gen`、`front` から `pnpm gen` でも呼べる（どちらも codegen の `make proto-gen` を呼ぶ）。
 
 | コマンド | 内容 |
 | --- | --- |
