@@ -5,7 +5,7 @@ allowBuilds:
   unrs-resolver: false
 
 overrides:
-  postcss: "8.5.23"
+  postcss: "8.5.31"
   # @vitejs/plugin-react と vitest の peer として入る vite のうち、脆弱な版（8.3.0〜8.3.2、high）だけを修正版に置き換える。
   # peer は範囲を書き換えても再解決されないので、選択子で版を指定する。8.3.3 以上には触れないので、将来の更新を妨げない
   "vite@<8.3.3": "8.3.5"
