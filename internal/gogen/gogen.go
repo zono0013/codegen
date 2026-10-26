@@ -141,7 +141,7 @@ type service struct {
 	AnyReturnsEntity  bool
 	AnyUsesEntity     bool
 	HandlerUsesEntity bool // Input の entity は handler の body 型にも出るので、usecase 側と別に持つ
-	NeedsDTO          bool // usecase の型が dto を参照するか（entity を返す rpc、または Output の中の entity）
+	NeedsDTO          bool // usecase の型が dto を参照するか（entity を返す rpc、Output や非 entity message の中の entity）
 	NonEntityTypes    []outputType
 	NeedsStrconv      bool
 }
@@ -403,7 +403,7 @@ type typeResolver struct {
 	names    map[protoreflect.FullName]string
 	used     map[string]bool
 	types    map[string]outputType
-	usesDTO  bool // Output（とそこから辿る型）が dto の型を参照したか
+	usesDTO  bool // Output や非 entity message（Input から辿るものも含む）が dto の型を参照したか
 }
 
 func buildService(svc *protogen.Service, entities map[protoreflect.FullName]*entity) service {
@@ -531,7 +531,7 @@ func (r *typeResolver) outputField(f *protogen.Field) outputField {
 	}
 }
 
-// outputGoType は Output（とそこから辿る非 entity message）のフィールド型。entity は DTO にする。
+// outputGoType は Output と非 entity message（Input から辿るものも含む）のフィールド型。entity は DTO にする。
 // entity は json タグを持たないので、そのまま JSON にするとキーが Go のフィールド名になり、OpenAPI・TS と食い違う。
 func (r *typeResolver) outputGoType(f *protogen.Field) string {
 	if f.Desc.IsMap() {
