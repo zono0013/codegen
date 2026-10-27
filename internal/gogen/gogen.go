@@ -145,7 +145,7 @@ type service struct {
 	NonEntityTypes   []outputType
 	NeedsStrconv     bool
 	NeedsTime        bool // usecase の型が time.Time（google.protobuf.Timestamp）を使うか
-	HandlerNeedsTime bool // Handler の body の型が time.Time を使うか
+	HandlerNeedsTime bool // Handler の body の型や path / query の読み出しが time を使うか
 }
 
 var statusConst = map[int]string{
@@ -195,6 +195,12 @@ func generate(files []*protogen.File, params Params) (map[string][]byte, error) 
 			if e != nil {
 				entities = append(entities, e)
 				entityByMsg[msg.Desc.FullName()] = e
+				// entity の中の入れ子の message は entity ではない
+				for _, nested := range msg.Messages {
+					if err := checkEntityOnlyMarkers(nested); err != nil {
+						return nil, err
+					}
+				}
 				continue
 			}
 			if err := checkEntityOnlyMarkers(msg); err != nil {
@@ -520,7 +526,7 @@ func buildService(svc *protogen.Service, entities map[protoreflect.FullName]*ent
 			for _, f := range fields.Path {
 				in := inputs[f]
 				mt.PathParamFields = append(mt.PathParamFields, in)
-				s.NeedsStrconv = s.NeedsStrconv || in.ParseFormat != ""
+				s.addParamImports(in)
 			}
 			for _, f := range fields.Body {
 				mt.BodyFields = append(mt.BodyFields, inputs[f])
@@ -529,7 +535,7 @@ func buildService(svc *protogen.Service, entities map[protoreflect.FullName]*ent
 			for _, f := range fields.Query {
 				in := inputs[f]
 				mt.QueryFields = append(mt.QueryFields, in)
-				s.NeedsStrconv = s.NeedsStrconv || in.ParseFormat != ""
+				s.addParamImports(in)
 			}
 		}
 
@@ -540,6 +546,12 @@ func buildService(svc *protogen.Service, entities map[protoreflect.FullName]*ent
 	s.NeedsTime = r.usesTime
 	s.NonEntityTypes = slices.SortedFunc(maps.Values(r.types), func(a, b outputType) int { return strings.Compare(a.Name, b.Name) })
 	return s
+}
+
+// addParamImports は path / query の値を読むのに Handler が使う package を記録する。
+func (s *service) addParamImports(in inputField) {
+	s.NeedsStrconv = s.NeedsStrconv || strings.HasPrefix(in.ParseFormat, "strconv.")
+	s.HandlerNeedsTime = s.HandlerNeedsTime || in.ScalarGoType == "time.Time"
 }
 
 func entityName(s rest.Shape) protoreflect.FullName {
@@ -653,6 +665,9 @@ func scalarGoType(f *protogen.Field) string {
 	if !rest.IsQueryable(f) {
 		return ""
 	}
+	if rest.IsTimestamp(f) {
+		return "time.Time"
+	}
 	switch f.Desc.Kind() {
 	case protoreflect.StringKind:
 		return "string"
@@ -682,6 +697,8 @@ func scalarParse(goType string) (format, conv string) {
 		return "strconv.ParseUint(%s, 10, 32)", "uint32"
 	case "uint64":
 		return "strconv.ParseUint(%s, 10, 64)", ""
+	case "time.Time":
+		return "time.Parse(time.RFC3339, %s)", ""
 	}
 	return "", ""
 }
@@ -737,7 +754,7 @@ func checkEntityOnlyMarkers(msg *protogen.Message) error {
 // checkTimestampMarker は @timestamp が付いていればエラーにする。日時は型で表すので、注釈は効かない（int64 のままになる）。
 func checkTimestampMarker(msg string, f *protogen.Field) error {
 	if annotation.HasMarker(string(f.Comments.Leading), "@timestamp") {
-		return fmt.Errorf("message %s: field %q: @timestamp is not supported; use google.protobuf.Timestamp for date-time fields", msg, f.Desc.Name())
+		return fmt.Errorf("message %s: field %q: @timestamp is not supported; remove it and declare date-time fields as google.protobuf.Timestamp", msg, f.Desc.Name())
 	}
 	return nil
 }

@@ -99,10 +99,13 @@ func Partition(req *protogen.Message, h *annotation.HTTP) Fields {
 	return out
 }
 
-// IsQueryable は Handler が query string から値を読めるフィールドかを返す。
+// IsQueryable は Handler が query string（と path）から値を読めるフィールドかを返す。
 func IsQueryable(f *protogen.Field) bool {
 	if f.Desc.IsList() || f.Desc.IsMap() {
 		return false
+	}
+	if IsTimestamp(f) {
+		return true // RFC 3339 として読む
 	}
 	switch f.Desc.Kind() {
 	case protoreflect.StringKind, protoreflect.BoolKind,

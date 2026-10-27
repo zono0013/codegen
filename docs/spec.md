@@ -185,7 +185,7 @@ Handler・FE の型・OpenAPI は、この規則を `internal/rest` から取る
 
 | | path param | それ以外のフィールド |
 | --- | --- | --- |
-| `GET` / `DELETE` | `{name}` → フィールドの型（string / 整数 / bool）に変換する。変換できなければ 400 | query string。読めるのは scalar だけ（repeated / map / message は無視）。整数 / bool は読めなければゼロ値 |
+| `GET` / `DELETE` | `{name}` → フィールドの型（string / 整数 / bool / 日時）に変換する。変換できなければ 400 | query string。読めるのは scalar と日時だけ（repeated / map / message は無視）。整数 / bool / 日時は読めなければゼロ値 |
 | `POST` / `PUT` / `PATCH` | 同上 | JSON body |
 
 **Entity の型**: scalar は Input / Output と同じ Go の型にする（`sint32` / `sfixed32` → `int32`、`uint32` / `fixed32` → `uint32`、`float` → `float32`、`double` → `float64`、`bytes` → `[]byte` など）。DB の列は Postgres に符号なしの型が無いので、`uint32` / `uint64` は `bigint`（`uint64` は 2^63 以上の値を入れられない）。`repeated` は `jsonb`。`bytes` は Entity の生成関数で nil を空の値にする（nil は NULL として送られ、NOT NULL の列に入らないため）。
@@ -196,15 +196,20 @@ Handler・FE の型・OpenAPI は、この規則を `internal/rest` から取る
 
 | 層 | 型 |
 | --- | --- |
-| Entity / Input / Output / DTO | `time.Time`（`repeated` は `[]time.Time`、map の値も `time.Time`） |
+| Entity / Input / Output / DTO | `time.Time`（Input / Output では `repeated` は `[]time.Time`、map の値も `time.Time`） |
 | DB の列 | `timestamptz` |
-| JSON | RFC 3339 の文字列（`"2026-10-27T03:00:00Z"`）。DTO は UTC にして出す。Input はオフセット付き（`+09:00`）も受け付ける |
-| TS（Zod） | `z.iso.datetime({ offset: true })` |
+| JSON・path・query | RFC 3339 の文字列（`"2026-10-27T03:00:00Z"`）。DTO は UTC にして出す。Input はオフセット付き（`+09:00`）も受け付ける |
+| TS（Zod） | `z.iso.datetime({ offset: true })`（Zod 4 が必要） |
 | OpenAPI | `type: string, format: date-time` |
 
 - Entity では、`@pk` / `@unique` / `@paging` との併用と `repeated` はエラー
-- `GET` / `DELETE` の query string からは読まない（message と同じく無視する）
-- Entity の Go の名前が `CreatedAt` / `UpdatedAt` のとき、GORM が値を入れる。作成のときはゼロ値なら今の時刻、`UpdatedAt` は更新（`Save` など）のたびに今の時刻
+- Entity の Go の名前が `CreatedAt` / `UpdatedAt` のとき、GORM が値を入れる（生成する Repository のメソッドごと）
+
+| メソッド | `created_at` | `updated_at` |
+| --- | --- | --- |
+| `Insert` / `BulkInsert` | ゼロ値なら今の時刻、そうでなければ渡した値 | 同左 |
+| `Upsert` / `BulkUpsert`（既にある行） | 変えない | 今の時刻 |
+| `Update` | 渡した値（ゼロ値なら 0001-01-01 で上書きする） | 今の時刻。渡した entity には書き戻さないので、更新後の値を返すときは `SelectByPK` で読み直す |
 
 **Entity のフィールド名**: lower_snake_case で書く（そうでなければエラー）。DB の列名と DTO の JSON のキーは proto のフィールド名をそのまま使う。TS・OpenAPI と同じキーになる。
 

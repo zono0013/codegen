@@ -55,6 +55,7 @@ message StatsResponse {
   Item item = 1;
   int64 total = 2;
   repeated google.protobuf.Timestamp history = 3;
+  map<string, google.protobuf.Timestamp> last_seen = 4;
 }
 message DraftResponse { Draft draft = 1; }
 message ByKeyResponse { map<string, Item> items = 1; }
@@ -178,6 +179,7 @@ func TestGenerate_ZodType(t *testing.T) {
 		// encoding/json は time.Time を RFC 3339 で出す（DTO は UTC の Z、Input / Output はオフセットを持つことがある）
 		{"Timestamp は日時の文字列", "  created_at: z.iso.datetime({ offset: true }),"},
 		{"repeated Timestamp", "  history: z.array(z.iso.datetime({ offset: true })),"},
+		{"map の値の Timestamp", "  last_seen: z.record(z.string(), z.iso.datetime({ offset: true })),"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -186,7 +188,6 @@ func TestGenerate_ZodType(t *testing.T) {
 	}
 }
 
-// Handler は Response message をそのまま返さず中身を返すので、FE の型もそれに合わせる。
 func TestGenerate_TimestampHasNoSchema(t *testing.T) {
 	// google/protobuf は生成しないので、TimestampSchema を参照・import しない
 	schema := generateFiles(t)["schemas/shop.gen.ts"]
@@ -195,6 +196,7 @@ func TestGenerate_TimestampHasNoSchema(t *testing.T) {
 	}
 }
 
+// Handler は Response message をそのまま返さず中身を返すので、FE の型もそれに合わせる。
 func TestGenerate_ResponseShape(t *testing.T) {
 	schema := generateFiles(t)["schemas/shop.gen.ts"]
 	tests := []struct {

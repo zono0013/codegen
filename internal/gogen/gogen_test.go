@@ -1,6 +1,7 @@
 package gogen
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -596,11 +597,66 @@ service ItemService {
 	}
 }
 
+func TestGenerate_TimestampParams(t *testing.T) {
+	// path / query の Timestamp は RFC 3339 として読む（path は読めなければ 400、query はゼロ値）
+	files := prototest.Generate(t, map[string]string{"event/v1/event.proto": `syntax = "proto3";
+package event.v1;
+import "google/protobuf/timestamp.proto";
+message ListEventsRequest {
+  google.protobuf.Timestamp day = 1;
+  google.protobuf.Timestamp since = 2;
+}
+message ListEventsResponse { int64 total = 1; }
+service EventService {
+  // @http GET /api/events/{day}
+  rpc ListEvents(ListEventsRequest) returns (ListEventsResponse);
+}
+`}, New(Params{ImportPath: "example.com/x/server"}))
+	src := files["internal/handler/event_handler.gen.go"]
+	flat := strings.Join(strings.Fields(src), " ")
+	for _, want := range []string{
+		`_day, err := time.Parse(time.RFC3339, r.PathValue("day"))`,
+		`_since, _ := time.Parse(time.RFC3339, urlQuery.Get("since"))`,
+		`"time"`,
+	} {
+		if !strings.Contains(flat, want) {
+			t.Errorf("%q が無い:\n%s", want, src)
+		}
+	}
+	if strings.Contains(src, "strconv") {
+		t.Errorf("使わない strconv を import している:\n%s", src)
+	}
+}
+
+func TestGenerate_TimeOnlyInUsecase(t *testing.T) {
+	// Output だけが Timestamp を使うとき、Handler は time を import しない（使わない import はコンパイルエラー）
+	files := prototest.Generate(t, map[string]string{"event/v1/event.proto": `syntax = "proto3";
+package event.v1;
+import "google/protobuf/timestamp.proto";
+message NowRequest {}
+message NowResponse { google.protobuf.Timestamp now = 1; }
+service EventService {
+  // @http GET /api/now
+  rpc Now(NowRequest) returns (NowResponse);
+}
+`}, New(Params{ImportPath: "example.com/x/server"}))
+	if src := files["internal/usecase/event_usecase_interface.gen.go"]; !strings.Contains(src, `"time"`) {
+		t.Errorf("usecase が time を import していない:\n%s", src)
+	}
+	if src := files["internal/handler/event_handler.gen.go"]; strings.Contains(src, `"time"`) {
+		t.Errorf("Handler が使わない time を import している:\n%s", src)
+	}
+}
+
 func TestNew_RejectsTimestampAnnotation(t *testing.T) {
 	// 日時は型（google.protobuf.Timestamp）で表す。注釈は効かないので、黙って int64 のままにしない
 	for name, src := range map[string]string{
 		"entity":    "syntax = \"proto3\";\npackage a.v1;\n// @entity\nmessage Post {\n  // @pk\n  int64 id = 1;\n  // @timestamp\n  int64 created_at_unix = 2;\n}\n",
 		"entity 以外": "syntax = \"proto3\";\npackage a.v1;\nmessage Post {\n  // @timestamp\n  int64 created_at_unix = 1;\n}\n",
+		// entity の中の入れ子の message も見る
+		"entity の入れ子": "syntax = \"proto3\";\npackage a.v1;\n// @entity\nmessage Post {\n  // @pk\n  int64 id = 1;\n  message Meta {\n    // @timestamp\n    int64 at_unix = 1;\n  }\n}\n",
+		// 型が Timestamp でも、注釈は外すよう案内する
+		"Timestamp 型": "syntax = \"proto3\";\npackage a.v1;\nimport \"google/protobuf/timestamp.proto\";\nmessage Post {\n  // @timestamp\n  google.protobuf.Timestamp at = 1;\n}\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := New(Params{ImportPath: "example.com/x/server"})(prototest.Files(t, map[string]string{"a/v1/a.proto": src}))
@@ -611,16 +667,22 @@ func TestNew_RejectsTimestampAnnotation(t *testing.T) {
 	}
 }
 func TestNew_RejectsEntityOnlyMarkersOutsideEntity(t *testing.T) {
-	// entity ではない message（入れ子も）では効かないので、黙って通さない
+	// entity ではない message（entity の中の入れ子も）では効かないので、黙って通さない
+	outers := map[string]string{
+		"message の入れ子": "message Outer {\n  message Inner {\n    // %s\n    string x = 1;\n  }\n  Inner inner = 1;\n}\n",
+		"entity の入れ子":  "// @entity\nmessage Outer {\n  // @pk\n  int64 id = 1;\n  message Inner {\n    // %s\n    string x = 1;\n  }\n}\n",
+	}
 	for _, marker := range []string{"@required", "@unique", "@decimal(10,2)", "@hidden"} {
-		t.Run(marker, func(t *testing.T) {
-			src := "syntax = \"proto3\";\npackage a.v1;\nmessage Outer {\n  message Inner {\n    // " + marker + "\n    string x = 1;\n  }\n  Inner inner = 1;\n}\n"
-			_, err := New(Params{ImportPath: "example.com/x/server"})(prototest.Files(t, map[string]string{"a/v1/a.proto": src}))
-			want := strings.SplitN(marker, "(", 2)[0]
-			if err == nil || !strings.Contains(err.Error(), want) {
-				t.Errorf("err = %v, want %s は entity だけというエラー", err, want)
-			}
-		})
+		for name, outer := range outers {
+			t.Run(marker+"/"+name, func(t *testing.T) {
+				src := "syntax = \"proto3\";\npackage a.v1;\n" + fmt.Sprintf(outer, marker)
+				_, err := New(Params{ImportPath: "example.com/x/server"})(prototest.Files(t, map[string]string{"a/v1/a.proto": src}))
+				want := strings.SplitN(marker, "(", 2)[0]
+				if err == nil || !strings.Contains(err.Error(), want) {
+					t.Errorf("err = %v, want %s は entity だけというエラー", err, want)
+				}
+			})
+		}
 	}
 }
 
@@ -628,6 +690,7 @@ func TestNew_RejectsTimestampKey(t *testing.T) {
 	// time.Time を引数に取る SelectBy / SelectByCursor は生成していない。timestamptz の配列にも対応していない
 	for name, field := range map[string]string{
 		"@unique":  "// @unique\n  google.protobuf.Timestamp at = 2;",
+		"@pk":      "// @pk\n  google.protobuf.Timestamp at = 2;",
 		"repeated": "repeated google.protobuf.Timestamp at = 2;",
 	} {
 		t.Run(name, func(t *testing.T) {

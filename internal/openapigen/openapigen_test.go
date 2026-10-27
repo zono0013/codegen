@@ -370,6 +370,31 @@ service TagService {
 	}
 }
 
+func TestGenerate_TimestampParams(t *testing.T) {
+	// Handler は path / query の Timestamp を RFC 3339 として読む
+	files := prototest.Generate(t, map[string]string{"event/v1/event.proto": `syntax = "proto3";
+package event.v1;
+import "google/protobuf/timestamp.proto";
+message ListEventsRequest {
+  google.protobuf.Timestamp day = 1;
+  google.protobuf.Timestamp since = 2;
+}
+message ListEventsResponse { int64 total = 1; }
+service EventService {
+  // @http GET /api/events/{day}
+  rpc ListEvents(ListEventsRequest) returns (ListEventsResponse);
+}
+`}, New(Params{Title: "Event API", Version: "0.1.0"}))
+	doc := prototest.LoadOpenAPI(t, files, RootFile)
+	o := op(t, doc, "GET", "/api/events/{day}")
+	for in, name := range map[string]string{"path": "day", "query": "since"} {
+		p := o.Parameters.GetByInAndName(in, name)
+		if p == nil || !p.Schema.Value.Type.Is("string") || p.Schema.Value.Format != "date-time" {
+			t.Errorf("%s param %s = %+v, want string/date-time", in, name, p)
+		}
+	}
+}
+
 func TestGenerate_HiddenFieldNotInSchema(t *testing.T) {
 	files := prototest.Generate(t, map[string]string{"user/v1/user.proto": `syntax = "proto3";
 package user.v1;

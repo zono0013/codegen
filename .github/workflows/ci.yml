@@ -213,7 +213,7 @@ jobs:
             uint32 page = 2;
             uint64 offset = 3;
             bool archived = 4;
-            // query string からは読まない（無視する）
+            // query string から RFC 3339 として読む
             google.protobuf.Timestamp since = 5;
           }
           message GetTagResponse { Tag tag = 1; }
@@ -241,6 +241,11 @@ jobs:
             map<string, google.protobuf.Timestamp> by_key = 4;
             Window window = 5;
           }
+          message GetTagAtRequest {
+            int64 id = 1;
+            google.protobuf.Timestamp at = 2;
+          }
+          message GetTagAtResponse { Window window = 1; }
           message TouchTagResponse {
             google.protobuf.Timestamp touched_at = 1;
             Window window = 2;
@@ -248,6 +253,9 @@ jobs:
           service TagService {
             // @http POST /api/tags/{id}/touch
             rpc TouchTag(TouchTagRequest) returns (TouchTagResponse);
+            // 日時の path パラメータ、Output だけが日時を使う（Handler は time を import しない）
+            // @http GET /api/tags/{id}/at/{at}
+            rpc GetTagAt(GetTagAtRequest) returns (GetTagAtResponse);
             // @http GET /api/tags/{id}
             rpc GetTag(GetTagRequest) returns (GetTagResponse);
             // @http DELETE /api/badges/{id}/{force}

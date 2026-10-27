@@ -47,7 +47,7 @@ clone し直すときは `git clone --recursive`、または clone の後に `gi
 | `main`：DB を開いて `tx.Init(db)`、Repository → Service → Usecase → `di.NewHandlers` と組み立て、`Register(mux)` で ServeMux に登録する | `example/server/cmd/api/main.go` |
 | Service と Usecase の実装（生成された Usecase interface を実装する） | `example/server/internal/domain/service/`、`example/server/internal/usecase/` |
 | マイグレーションの適用（`go run ./cmd/migration-gen` が SQL を作る。適用は golang-migrate など） | `example/server/Makefile` |
-| front の apiClient（`codegen.yaml` の `targets.front.client` で指定。axios のインスタンスがそのまま使える。期待する形は [`docs/spec.md`](docs/spec.md) の「ランタイム」）と `zod` | `example/front/shared/api/apiClient.ts` |
+| front の apiClient（`codegen.yaml` の `targets.front.client` で指定。axios のインスタンスがそのまま使える。期待する形は [`docs/spec.md`](docs/spec.md) の「ランタイム」）と `zod`（4 以上） | `example/front/shared/api/apiClient.ts` |
 
 リポジトリのルート以外（`v2/` など）を生成先にするときは、そのディレクトリに `codegen.yaml` と `proto/` を置き（`codegen.yaml` からは自分のディレクトリの外を指せない）、`make -C codegen proto-gen ROOT=$PWD/v2` で生成する。`ROOT` は絶対パスで書く（相対パスは `codegen/` から解決される）。
 
