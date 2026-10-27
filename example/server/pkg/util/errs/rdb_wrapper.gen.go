@@ -29,6 +29,12 @@ func (w *rdbErrorWrapper) Wrap(resource string, err error) *DomainError {
 		return de
 	}
 
+	de := w.classify(resource, err)
+	de.Cause = err
+	return de
+}
+
+func (w *rdbErrorWrapper) classify(resource string, err error) *DomainError {
 	switch {
 	case errors.Is(err, ErrNotFound):
 		return New(ErrorTypeNotFound, fmt.Sprintf("%s not found", resource))

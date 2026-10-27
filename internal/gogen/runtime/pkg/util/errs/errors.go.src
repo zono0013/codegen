@@ -31,10 +31,16 @@ type DomainError struct {
 	Message    string       `json:"message"`
 	Errors     []FieldError `json:"-"`
 	StatusCode int          `json:"-"`
+	// Cause は元のエラー（DB のエラーなど）。クライアントには出さず、5xx のログと errors.Is / errors.As のために持つ。
+	Cause error `json:"-"`
 }
 
 func (e *DomainError) Error() string {
 	return fmt.Sprintf("%s: %s", e.Type, e.Message)
+}
+
+func (e *DomainError) Unwrap() error {
+	return e.Cause
 }
 
 // kind は ErrorType に対応する HTTP ステータスと Problem の title。

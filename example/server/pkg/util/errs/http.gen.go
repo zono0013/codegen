@@ -4,6 +4,7 @@ package errs
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 )
 
@@ -42,6 +43,15 @@ func (pw *problemWriter) WriteError(w http.ResponseWriter, r *http.Request, err 
 		p.Title = kindOf(de.Type).title
 		p.Detail = de.Message
 		p.Errors = de.Errors
+	}
+
+	// 5xx はサーバー側の原因を追えるよう、ここで 1 回だけログに出す。出力先や形式は slog.SetDefault で変える。
+	if p.Status >= http.StatusInternalServerError {
+		attrs := []any{"method", r.Method, "path", r.URL.Path, "status", p.Status, "error", err}
+		if de, ok := As(err); ok && de.Cause != nil {
+			attrs = append(attrs, "cause", de.Cause)
+		}
+		slog.ErrorContext(r.Context(), "request failed", attrs...)
 	}
 
 	w.Header().Set("Content-Type", "application/problem+json")
