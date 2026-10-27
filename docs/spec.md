@@ -26,6 +26,7 @@ Go ツールチェーンだけで動く（buf / protoc は不要）。
 
 - 元のソースは `*.go.src`。Go の複合リテラル（`{{...}}`）を含むので text/template は使わず、`__IMPORT_PATH__` だけを生成先の import path に置き換える
 - **エラーの種類を増やすとき**は生成物を編集せず、パッケージ変数の初期化で `errs.Register` を呼ぶ（`var ErrorTypeTeapot = errs.Register("TEAPOT", http.StatusTeapot, "I'm a teapot")`）。`init` で呼ぶと、それより先に初期化されるパッケージ変数の `errs.New` が登録前の対応（500）を使ってしまう
+- **エラーの原因**: `errs.RDBErrorWrapper.Wrap` は元の DB のエラーを `DomainError.Cause` に入れる（`errors.Is` / `errors.As` で辿れる）。渡したエラーがすでに `DomainError` を包んでいるときは、それをそのまま返す。`Cause` はクライアントへの応答に出さない。`ErrorWriter` は 5xx のときだけ、メソッド・パス・ステータス・エラーと原因を `slog.Default()` に `ERROR` で 1 行出す（4xx は出さない）。出力先や形式は `slog.SetDefault` で変える
 - **ランタイムを変えたいとき**（別の DB に移すなど）は、このリポジトリに PR を出すかフォークする。使う側で生成物を編集しても、次の `make proto-gen` で戻る
 - **TypeScript の `apiClient` は生成しない**。認証やリトライなどプロジェクトの方針を含むため、プロジェクトが持ち、生成した API 関数は `codegen.yaml` の `targets.front.client` から import する。期待する形は次のとおり（axios のインスタンスやそれを包んだものがそのまま使える）。生成した関数は戻り値の `.data` を返す
   - `get<T>(url, config?: { params?: object })` / `delete<T>(url, config?: { params?: object })` が `Promise<{ data: T }>` を返す
