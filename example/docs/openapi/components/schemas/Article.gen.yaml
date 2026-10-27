@@ -11,8 +11,8 @@ required:
   - body
   - author_id
   - published
-  - created_at_unix
-  - updated_at_unix
+  - created_at
+  - updated_at
 properties:
   id:
     type: string
@@ -29,11 +29,9 @@ properties:
   published:
     type: boolean
     description: 公開済みかどうか。作成直後は false（下書き）。
-  created_at_unix:
-    type: integer
-    format: int64
-    description: Unix 時刻（秒）
-  updated_at_unix:
-    type: integer
-    format: int64
-    description: Unix 時刻（秒）
+  created_at:
+    type: string
+    format: date-time
+  updated_at:
+    type: string
+    format: date-time

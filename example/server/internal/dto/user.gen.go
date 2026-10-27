@@ -11,10 +11,10 @@ import (
 // UserDTO は User エンティティをクライアントへ返すための JSON シリアライズ型。
 // json タグはここで一元管理する。entity 側は GORM タグのみ持つ。
 type UserDTO struct {
-	ID            string `json:"id"`
-	Email         string `json:"email"`
-	Name          string `json:"name"`
-	CreatedAtUnix int64  `json:"created_at_unix"`
+	ID        string    `json:"id"`
+	Email     string    `json:"email"`
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // FromUser は entity.User を UserDTO に変換する。
@@ -24,10 +24,10 @@ func FromUser(e *entity.User) *UserDTO {
 		return nil
 	}
 	return &UserDTO{
-		ID:            e.ID,
-		Email:         e.Email,
-		Name:          e.Name,
-		CreatedAtUnix: e.CreatedAt.Unix(),
+		ID:        e.ID,
+		Email:     e.Email,
+		Name:      e.Name,
+		CreatedAt: e.CreatedAt.UTC(),
 	}
 }
 

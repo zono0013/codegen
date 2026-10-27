@@ -17,8 +17,8 @@ const draft: Article = {
   body: '本文です',
   author_id: 'u1',
   published: false,
-  created_at_unix: 1700000000,
-  updated_at_unix: 1700000000,
+  created_at: '2023-11-14T22:13:20Z',
+  updated_at: '2023-11-14T22:13:20Z',
 }
 
 function createWrapper() {

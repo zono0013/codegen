@@ -3,6 +3,9 @@ package usecase
 
 import (
 	"context"
+{{- if .NeedsTime}}
+	"time"
+{{- end}}
 {{if .NeedsDTO}}
 	"{{importPath}}/internal/dto"
 {{end}}

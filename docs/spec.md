@@ -144,7 +144,6 @@ codegen（このリポジトリ）のルートで実行する。Submodule とし
 | `@paging` | field | cursor pagination の基準列。`SelectByCursor(ctx, limit, after *T)`（ASC 固定）。`@pk` か `@unique` と併記必須、型は `int64` / `int32` / `string`、1 message に 1 個まで |
 | `@required` | `string` field | trim + 非空バリデーション。`string` 以外はエラー |
 | `@email` | `string` field | email 形式バリデーション（`string` 以外はエラー）。Zod は `.email()`、OpenAPI は `format: email` |
-| `@timestamp` | `int64` field（名前は `<name>_unix`） | Entity では `time.Time`（名前の `Unix` を除く）、DB の列は `<name>`。DTO / JSON では `<name>_unix`（Unix 秒）。名前が `_unix` で終わらない、または `int64` でなければエラー |
 | `@decimal(p,s)` | `string` field | Entity / DTO で `decimal.Decimal`、DB は `numeric(p,s)`、JSON は文字列。`@pk` などとは併用不可 |
 | `@hidden` | entity の field | API に出さない（パスワードのハッシュなど）。Entity（DB の列）には残し、DTO・TS の Zod スキーマ・OpenAPI の schema から外す。request には entity を置けないので、外から書き込まれることもない。`@pk` / `@paging` との併記と、entity ではない message での使用はエラー |
 | `@http METHOD /path` | rpc | REST のルート（`GET` / `POST` / `PUT` / `PATCH` / `DELETE`）。`{name}` は path param。**無い rpc は Handler も FE 関数も OpenAPI も作らない**。FE から呼ぶ rpc のパスは `/api/` で始める（example/front は `/api/*` だけをバックエンドに転送する） |
@@ -158,8 +157,7 @@ message User {
   string id = 1;
   // @unique @email
   string email = 2;
-  // @timestamp
-  int64 created_at_unix = 3;
+  google.protobuf.Timestamp created_at = 3;  // import "google/protobuf/timestamp.proto";
 }
 
 service UserService {
@@ -187,14 +185,33 @@ Handler・FE の型・OpenAPI は、この規則を `internal/rest` から取る
 
 | | path param | それ以外のフィールド |
 | --- | --- | --- |
-| `GET` / `DELETE` | `{name}` → フィールドの型（string / 整数 / bool）に変換する。変換できなければ 400 | query string。読めるのは scalar だけ（repeated / map / message は無視）。整数 / bool は読めなければゼロ値 |
+| `GET` / `DELETE` | `{name}` → フィールドの型（string / 整数 / bool / 日時）に変換する。変換できなければ 400 | query string。読めるのは scalar と日時だけ（repeated / map / message は無視）。整数 / bool / 日時は読めなければゼロ値 |
 | `POST` / `PUT` / `PATCH` | 同上 | JSON body |
 
 **Entity の型**: scalar は Input / Output と同じ Go の型にする（`sint32` / `sfixed32` → `int32`、`uint32` / `fixed32` → `uint32`、`float` → `float32`、`double` → `float64`、`bytes` → `[]byte` など）。DB の列は Postgres に符号なしの型が無いので、`uint32` / `uint64` は `bigint`（`uint64` は 2^63 以上の値を入れられない）。`repeated` は `jsonb`。`bytes` は Entity の生成関数で nil を空の値にする（nil は NULL として送られ、NOT NULL の列に入らないため）。
 
 **rpc の message に entity は置けない**: rpc の request / response に `@entity` の message をそのまま使うと、生成のときにエラーにする（rpc ごとの message で包む。response は `GetItemResponse { Item item = 1; }` のように包めば DTO で返る）。request（とそこから辿る message、map の値）が `@entity` の message を含んでいても、同じくエラーにする。entity をそのまま受けると、主キーや `@hidden` のフィールドまで外から書けてしまう（一括代入）。request は scalar のフィールドを並べて書き、Usecase で entity を組み立てる。
 
-**Entity のフィールド名**: lower_snake_case で書く（そうでなければエラー）。DB の列名と DTO の JSON のキーは proto のフィールド名をそのまま使う（`@timestamp` の列名は `_unix` を除いたもの）。TS・OpenAPI と同じキーになる。
+**日時**: `google.protobuf.Timestamp` の型で書く（名前に規則は無い。例では `created_at` / `updated_at`）。`@timestamp` はエラーになる。
+
+| 層 | 型 |
+| --- | --- |
+| Entity / Input / Output / DTO | `time.Time`（Input / Output では `repeated` は `[]time.Time`、map の値も `time.Time`） |
+| DB の列 | `timestamptz` |
+| JSON・path・query | RFC 3339 の文字列（`"2026-10-27T03:00:00Z"`）。DTO は UTC にして出す。Input はオフセット付き（`+09:00`）も受け付ける |
+| TS（Zod） | `z.iso.datetime({ offset: true })`（Zod 4 が必要） |
+| OpenAPI | `type: string, format: date-time` |
+
+- Entity では、`@pk` / `@unique` / `@paging` との併用と `repeated` はエラー
+- Entity の Go の名前が `CreatedAt` / `UpdatedAt` のとき、GORM が値を入れる（生成する Repository のメソッドごと）
+
+| メソッド | `created_at` | `updated_at` |
+| --- | --- | --- |
+| `Insert` / `BulkInsert` | ゼロ値なら今の時刻、そうでなければ渡した値 | 同左 |
+| `Upsert` / `BulkUpsert`（既にある行） | 変えない | 今の時刻 |
+| `Update` | 渡した値（ゼロ値なら 0001-01-01 で上書きする） | 今の時刻。渡した entity には書き戻さないので、更新後の値を返すときは `SelectByPK` で読み直す |
+
+**Entity のフィールド名**: lower_snake_case で書く（そうでなければエラー）。DB の列名と DTO の JSON のキーは proto のフィールド名をそのまま使う。TS・OpenAPI と同じキーになる。
 
 **JSON の型**: `encoding/json` 基準（protojson ではない）。int64 も数値、キーは proto のフィールド名（snake_case）。
 

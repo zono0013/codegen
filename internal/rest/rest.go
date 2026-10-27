@@ -5,7 +5,6 @@ package rest
 import (
 	"net/http"
 	"slices"
-	"strings"
 
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -100,10 +99,13 @@ func Partition(req *protogen.Message, h *annotation.HTTP) Fields {
 	return out
 }
 
-// IsQueryable は Handler が query string から値を読めるフィールドかを返す。
+// IsQueryable は Handler が query string（と path）から値を読めるフィールドかを返す。
 func IsQueryable(f *protogen.Field) bool {
 	if f.Desc.IsList() || f.Desc.IsMap() {
 		return false
+	}
+	if IsTimestamp(f) {
+		return true // RFC 3339 として読む
 	}
 	switch f.Desc.Kind() {
 	case protoreflect.StringKind, protoreflect.BoolKind,
@@ -122,12 +124,8 @@ func IsHidden(f *protogen.Field) bool {
 	return annotation.HasMarker(string(f.Comments.Leading), "@hidden")
 }
 
-// DTOFieldName は Handler が返す DTO（gogen の dto テンプレート）での JSON キーを返す。
-// @timestamp は entity 上 time.Time だが、DTO では "<name>_unix" の int64 に戻す。
-func DTOFieldName(f *protogen.Field) string {
-	name := string(f.Desc.Name())
-	if annotation.HasMarker(string(f.Comments.Leading), "@timestamp") {
-		return strings.TrimSuffix(name, "_unix") + "_unix"
-	}
-	return name
+// IsTimestamp は日時のフィールド（google.protobuf.Timestamp）かを返す。生成物では time.Time、JSON では RFC 3339 の文字列。
+// map は value 側を渡す。
+func IsTimestamp(f *protogen.Field) bool {
+	return !f.Desc.IsMap() && f.Desc.Kind() == protoreflect.MessageKind && f.Desc.Message().FullName() == "google.protobuf.Timestamp"
 }

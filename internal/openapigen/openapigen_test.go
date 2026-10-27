@@ -14,6 +14,7 @@ import (
 
 const testProto = `syntax = "proto3";
 package shop.v1;
+import "google/protobuf/timestamp.proto";
 // 商品。
 //
 // @entity
@@ -26,13 +27,13 @@ message Item {
   // @decimal(10,2)
   string price = 3;
   repeated string tags = 4;
-  // @timestamp
-  int64 created_at_unix = 5;
+  google.protobuf.Timestamp created_at = 5;
 }
 
 message Summary {
   int64 total = 1;
   map<string, int32> by_tag = 2;
+  repeated google.protobuf.Timestamp history = 3;
 }
 
 message ListItemsRequest {
@@ -315,7 +316,7 @@ func TestGenerate_EntitySchema(t *testing.T) {
 		t.Errorf("description = %q（アノテーション行は除く）", v.Description)
 	}
 	// DTO は omitempty を持たないので全フィールドが常に出る
-	if want := []string{"id", "name", "price", "tags", "created_at_unix"}; !slices.Equal(v.Required, want) {
+	if want := []string{"id", "name", "price", "tags", "created_at"}; !slices.Equal(v.Required, want) {
 		t.Errorf("required = %v, want %v", v.Required, want)
 	}
 	tests := []struct {
@@ -323,8 +324,8 @@ func TestGenerate_EntitySchema(t *testing.T) {
 	}{
 		{"id", "string", ""},
 		{"name", "string", ""},
-		{"price", "string", "decimal"}, // shopspring/decimal は JSON 文字列
-		{"created_at_unix", "integer", "int64"},
+		{"price", "string", "decimal"},        // shopspring/decimal は JSON 文字列
+		{"created_at", "string", "date-time"}, // encoding/json は time.Time を RFC 3339 で出す
 	}
 	for _, tt := range tests {
 		p := v.Properties[tt.field]
@@ -369,6 +370,31 @@ service TagService {
 	}
 }
 
+func TestGenerate_TimestampParams(t *testing.T) {
+	// Handler は path / query の Timestamp を RFC 3339 として読む
+	files := prototest.Generate(t, map[string]string{"event/v1/event.proto": `syntax = "proto3";
+package event.v1;
+import "google/protobuf/timestamp.proto";
+message ListEventsRequest {
+  google.protobuf.Timestamp day = 1;
+  google.protobuf.Timestamp since = 2;
+}
+message ListEventsResponse { int64 total = 1; }
+service EventService {
+  // @http GET /api/events/{day}
+  rpc ListEvents(ListEventsRequest) returns (ListEventsResponse);
+}
+`}, New(Params{Title: "Event API", Version: "0.1.0"}))
+	doc := prototest.LoadOpenAPI(t, files, RootFile)
+	o := op(t, doc, "GET", "/api/events/{day}")
+	for in, name := range map[string]string{"path": "day", "query": "since"} {
+		p := o.Parameters.GetByInAndName(in, name)
+		if p == nil || !p.Schema.Value.Type.Is("string") || p.Schema.Value.Format != "date-time" {
+			t.Errorf("%s param %s = %+v, want string/date-time", in, name, p)
+		}
+	}
+}
+
 func TestGenerate_HiddenFieldNotInSchema(t *testing.T) {
 	files := prototest.Generate(t, map[string]string{"user/v1/user.proto": `syntax = "proto3";
 package user.v1;
@@ -395,5 +421,20 @@ service UserService {
 	}
 	if v.Properties["email"] == nil {
 		t.Errorf("@hidden 以外のフィールドまで消えた")
+	}
+}
+
+func TestGenerate_TimestampInNonEntity(t *testing.T) {
+	files := generateFiles(t)
+	// Timestamp は日時の文字列にし、Seconds / Nanos を持つ component を作らない
+	for name := range files {
+		if strings.Contains(name, "Timestamp") {
+			t.Errorf("Timestamp の component を作っている: %s", name)
+		}
+	}
+	doc := prototest.LoadOpenAPI(t, files, RootFile)
+	p := doc.Components.Schemas["Summary"].Value.Properties["history"]
+	if p == nil || !p.Value.Type.Is("array") || !p.Value.Items.Value.Type.Is("string") || p.Value.Items.Value.Format != "date-time" {
+		t.Errorf("history = %+v, want string/date-time の配列", p)
 	}
 }

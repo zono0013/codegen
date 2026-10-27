@@ -15,8 +15,6 @@ import (
 type {{.Name}}DTO struct {
 {{- range .Fields}}
 {{- if .IsHidden}}
-{{- else if .IsTimestamp}}
-	{{.GoName}}Unix int64 `json:"{{.SnakeName}}_unix"`
 {{- else}}
 	{{.GoName}} {{.GoType}} `json:"{{.SnakeName}}"`
 {{- end}}
@@ -33,7 +31,7 @@ func From{{.Name}}(e *entity.{{.Name}}) *{{.Name}}DTO {
 {{- range .Fields}}
 {{- if .IsHidden}}
 {{- else if .IsTimestamp}}
-		{{.GoName}}Unix: e.{{.GoName}}.Unix(),
+		{{.GoName}}: e.{{.GoName}}.UTC(),
 {{- else}}
 		{{.GoName}}: e.{{.GoName}},
 {{- end}}

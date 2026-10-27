@@ -7,6 +7,9 @@ import (
 {{- if .NeedsStrconv}}
 	"strconv"
 {{- end}}
+{{- if .HandlerNeedsTime}}
+	"time"
+{{- end}}
 
 	"{{importPath}}/pkg/util/errs"
 	"{{importPath}}/internal/usecase"

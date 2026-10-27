@@ -57,7 +57,7 @@ export function UserTable({ users, isLoading, onDelete, isDeleting }: UserTableP
                 <TableCell className="font-medium">{user.name}</TableCell>
                 <TableCell className="text-muted-foreground">{user.email}</TableCell>
                 <TableCell className="font-mono text-xs text-muted-foreground">
-                  {new Date(user.created_at_unix * 1000).toLocaleDateString('ja-JP')}
+                  {new Date(user.created_at).toLocaleDateString('ja-JP')}
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">

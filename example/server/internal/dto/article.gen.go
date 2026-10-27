@@ -11,14 +11,14 @@ import (
 // ArticleDTO は Article エンティティをクライアントへ返すための JSON シリアライズ型。
 // json タグはここで一元管理する。entity 側は GORM タグのみ持つ。
 type ArticleDTO struct {
-	ID            string `json:"id"`
-	Slug          string `json:"slug"`
-	Title         string `json:"title"`
-	Body          string `json:"body"`
-	AuthorID      string `json:"author_id"`
-	Published     bool   `json:"published"`
-	CreatedAtUnix int64  `json:"created_at_unix"`
-	UpdatedAtUnix int64  `json:"updated_at_unix"`
+	ID        string    `json:"id"`
+	Slug      string    `json:"slug"`
+	Title     string    `json:"title"`
+	Body      string    `json:"body"`
+	AuthorID  string    `json:"author_id"`
+	Published bool      `json:"published"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // FromArticle は entity.Article を ArticleDTO に変換する。
@@ -28,14 +28,14 @@ func FromArticle(e *entity.Article) *ArticleDTO {
 		return nil
 	}
 	return &ArticleDTO{
-		ID:            e.ID,
-		Slug:          e.Slug,
-		Title:         e.Title,
-		Body:          e.Body,
-		AuthorID:      e.AuthorID,
-		Published:     e.Published,
-		CreatedAtUnix: e.CreatedAt.Unix(),
-		UpdatedAtUnix: e.UpdatedAt.Unix(),
+		ID:        e.ID,
+		Slug:      e.Slug,
+		Title:     e.Title,
+		Body:      e.Body,
+		AuthorID:  e.AuthorID,
+		Published: e.Published,
+		CreatedAt: e.CreatedAt.UTC(),
+		UpdatedAt: e.UpdatedAt.UTC(),
 	}
 }
 

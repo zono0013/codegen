@@ -62,7 +62,7 @@ type field struct {
 	IsUnique         bool
 	IsEmail          bool
 	IsRequired       bool
-	IsTimestamp      bool
+	IsTimestamp      bool // google.protobuf.Timestamp（time.Time）
 	IsHidden         bool // API に出さない（DTO から外す）
 	IsPaging         bool
 	IsList           bool
@@ -73,7 +73,7 @@ type field struct {
 
 // hasKeyMarker は @decimal / repeated と併用できないアノテーションを持つか。
 func (f field) hasKeyMarker() bool {
-	return f.IsPK || f.IsUnique || f.IsEmail || f.IsRequired || f.IsTimestamp || f.IsPaging
+	return f.IsPK || f.IsUnique || f.IsEmail || f.IsRequired || f.IsPaging
 }
 
 type entity struct {
@@ -144,6 +144,8 @@ type service struct {
 	NeedsDTO         bool // usecase の型が dto を参照するか（entity を返す rpc、Output や非 entity message の中の entity）
 	NonEntityTypes   []outputType
 	NeedsStrconv     bool
+	NeedsTime        bool // usecase の型が time.Time（google.protobuf.Timestamp）を使うか
+	HandlerNeedsTime bool // Handler の body の型や path / query の読み出しが time を使うか
 }
 
 var statusConst = map[int]string{
@@ -193,6 +195,12 @@ func generate(files []*protogen.File, params Params) (map[string][]byte, error) 
 			if e != nil {
 				entities = append(entities, e)
 				entityByMsg[msg.Desc.FullName()] = e
+				// entity の中の入れ子の message は entity ではない
+				for _, nested := range msg.Messages {
+					if err := checkEntityOnlyMarkers(nested); err != nil {
+						return nil, err
+					}
+				}
 				continue
 			}
 			if err := checkEntityOnlyMarkers(msg); err != nil {
@@ -340,7 +348,7 @@ func parseEntity(msg *protogen.Message) (*entity, error) {
 			IsUnique:         annotation.HasMarker(comment, "@unique"),
 			IsEmail:          annotation.HasMarker(comment, "@email"),
 			IsRequired:       annotation.HasMarker(comment, "@required"),
-			IsTimestamp:      annotation.HasMarker(comment, "@timestamp"),
+			IsTimestamp:      rest.IsTimestamp(f),
 			IsHidden:         rest.IsHidden(f),
 			IsPaging:         isPaging,
 			IsList:           f.Desc.IsList(),
@@ -348,14 +356,13 @@ func parseEntity(msg *protogen.Message) (*entity, error) {
 			DecimalPrecision: precision,
 			DecimalScale:     scale,
 		}
-		// DTO・OpenAPI は "<名前>_unix"、TS は proto の名前をそのまま JSON のキーにするので、名前が _unix で終わらないとずれる。
-		// 名前の規則を伝えるエラーなので、Go の名前ではなく proto の名前を示す
-		if spec.IsTimestamp && (spec.ProtoType != "int64" || !strings.HasSuffix(string(f.Desc.Name()), "_unix")) {
-			return nil, fmt.Errorf("message %s: field %q: @timestamp requires an int64 field named \"<name>_unix\" (Unix seconds)", name, f.Desc.Name())
+		if err := checkTimestampMarker(name, f); err != nil {
+			return nil, err
 		}
-		// time.Time を引数に取る SelectBy / SelectByCursor は生成していない（repository が time を import しない）
-		if spec.IsTimestamp && (spec.IsPK || spec.IsUnique || isPaging) {
-			return nil, fmt.Errorf("message %s: field %q: @timestamp cannot be combined with @pk/@unique/@paging", name, f.GoName)
+		// time.Time を引数に取る SelectBy / SelectByCursor は生成していない（repository が time を import しない）。
+		// timestamptz の配列の列にも対応していない
+		if spec.IsTimestamp && (spec.IsPK || spec.IsUnique || isPaging || spec.IsList) {
+			return nil, fmt.Errorf("message %s: field %q: google.protobuf.Timestamp cannot be combined with @pk/@unique/@paging or `repeated` in @entity", name, f.GoName)
 		}
 		// 列名・DTO の JSON のキーは proto のフィールド名をそのまま使う（TS・OpenAPI と同じ）。Go の名前から作り直すと、
 		// 頭字語や camelCase の名前で TS とずれる
@@ -367,7 +374,7 @@ func parseEntity(msg *protogen.Message) (*entity, error) {
 				return nil, fmt.Errorf("message %s: field %q: @decimal requires proto type \"string\" but got %q (precision loss prevention)", name, f.GoName, spec.ProtoType)
 			}
 			if spec.hasKeyMarker() {
-				return nil, fmt.Errorf("message %s: field %q: @decimal cannot be combined with @pk/@unique/@email/@required/@timestamp/@paging", name, f.GoName)
+				return nil, fmt.Errorf("message %s: field %q: @decimal cannot be combined with @pk/@unique/@email/@required/@paging", name, f.GoName)
 			}
 		}
 		// 主キー・cursor の基準を出さないと、クライアントは取得や次のページに渡す値を持てない
@@ -379,7 +386,7 @@ func parseEntity(msg *protogen.Message) (*entity, error) {
 			return nil, fmt.Errorf("message %s: field %q: @email/@required requires proto type \"string\" but got %q", name, f.GoName, spec.ProtoType)
 		}
 		if spec.IsList && spec.hasKeyMarker() {
-			return nil, fmt.Errorf("message %s: field %q: `repeated` cannot be combined with @pk/@unique/@email/@required/@timestamp/@paging in @entity", name, f.GoName)
+			return nil, fmt.Errorf("message %s: field %q: `repeated` cannot be combined with @pk/@unique/@email/@required/@paging in @entity", name, f.GoName)
 		}
 
 		listPrefix := ""
@@ -389,11 +396,6 @@ func parseEntity(msg *protogen.Message) (*entity, error) {
 		switch {
 		case spec.IsTimestamp:
 			spec.GoType = "time.Time"
-			// 正規化（LastAPICallAt）の前の名前から作る。正規化後の名前を snake_case にすると last_a_p_i_call_at になる
-			raw := strings.TrimSuffix(f.GoName, "Unix")
-			spec.GoName = normalizeInitialisms(raw)
-			spec.ParamName = lowerFirst(raw)
-			spec.SnakeName = strings.TrimSuffix(string(f.Desc.Name()), "_unix")
 		case spec.IsDecimal:
 			spec.GoType = listPrefix + "decimal.Decimal"
 		default:
@@ -449,6 +451,7 @@ type typeResolver struct {
 	used     map[string]bool
 	types    map[string]outputType
 	usesDTO  bool // Output や非 entity message（Input から辿るものも含む）が dto の型を参照したか
+	usesTime bool // time.Time（google.protobuf.Timestamp）を参照したか
 }
 
 func buildService(svc *protogen.Service, entities map[protoreflect.FullName]*entity) service {
@@ -523,15 +526,16 @@ func buildService(svc *protogen.Service, entities map[protoreflect.FullName]*ent
 			for _, f := range fields.Path {
 				in := inputs[f]
 				mt.PathParamFields = append(mt.PathParamFields, in)
-				s.NeedsStrconv = s.NeedsStrconv || in.ParseFormat != ""
+				s.addParamImports(in)
 			}
 			for _, f := range fields.Body {
 				mt.BodyFields = append(mt.BodyFields, inputs[f])
+				s.HandlerNeedsTime = s.HandlerNeedsTime || strings.Contains(inputs[f].HandlerGoType, "time.Time")
 			}
 			for _, f := range fields.Query {
 				in := inputs[f]
 				mt.QueryFields = append(mt.QueryFields, in)
-				s.NeedsStrconv = s.NeedsStrconv || in.ParseFormat != ""
+				s.addParamImports(in)
 			}
 		}
 
@@ -539,8 +543,15 @@ func buildService(svc *protogen.Service, entities map[protoreflect.FullName]*ent
 	}
 
 	s.NeedsDTO = s.AnyReturnsEntity || r.usesDTO
+	s.NeedsTime = r.usesTime
 	s.NonEntityTypes = slices.SortedFunc(maps.Values(r.types), func(a, b outputType) int { return strings.Compare(a.Name, b.Name) })
 	return s
+}
+
+// addParamImports は path / query の値を読むのに Handler が使う package を記録する。
+func (s *service) addParamImports(in inputField) {
+	s.NeedsStrconv = s.NeedsStrconv || strings.HasPrefix(in.ParseFormat, "strconv.")
+	s.HandlerNeedsTime = s.HandlerNeedsTime || in.ScalarGoType == "time.Time"
 }
 
 func entityName(s rest.Shape) protoreflect.FullName {
@@ -596,6 +607,13 @@ func (r *typeResolver) goType(f *protogen.Field, pkg string) string {
 	if f.Desc.IsMap() {
 		return "map[" + r.goType(f.Message.Fields[0], pkg) + "]" + r.goType(f.Message.Fields[1], pkg)
 	}
+	if rest.IsTimestamp(f) {
+		r.usesTime = true
+		if f.Desc.IsList() {
+			return "[]time.Time"
+		}
+		return "time.Time"
+	}
 	if f.Desc.Kind() == protoreflect.MessageKind && f.Message != nil {
 		if _, ok := r.entities[f.Message.Desc.FullName()]; !ok {
 			if f.Desc.IsList() {
@@ -630,12 +648,12 @@ func (r *typeResolver) collect(f *protogen.Field) {
 	}
 }
 
-// referencedMessage は f が指す message（map なら value 側）。scalar なら nil。
+// referencedMessage は f が指す message（map なら value 側）。scalar と Timestamp（time.Time）なら nil。
 func referencedMessage(f *protogen.Field) *protogen.Message {
 	if f.Desc.IsMap() {
 		f = f.Message.Fields[1]
 	}
-	if f.Desc.Kind() != protoreflect.MessageKind {
+	if f.Desc.Kind() != protoreflect.MessageKind || rest.IsTimestamp(f) {
 		return nil
 	}
 	return f.Message
@@ -646,6 +664,9 @@ func referencedMessage(f *protogen.Field) *protogen.Message {
 func scalarGoType(f *protogen.Field) string {
 	if !rest.IsQueryable(f) {
 		return ""
+	}
+	if rest.IsTimestamp(f) {
+		return "time.Time"
 	}
 	switch f.Desc.Kind() {
 	case protoreflect.StringKind:
@@ -676,6 +697,8 @@ func scalarParse(goType string) (format, conv string) {
 		return "strconv.ParseUint(%s, 10, 32)", "uint32"
 	case "uint64":
 		return "strconv.ParseUint(%s, 10, 64)", ""
+	case "time.Time":
+		return "time.Parse(time.RFC3339, %s)", ""
 	}
 	return "", ""
 }
@@ -704,12 +727,15 @@ func entityInMessage(msg *protogen.Message, entities map[protoreflect.FullName]*
 }
 
 // entityOnlyMarkers は entity のフィールドでだけ意味を持つアノテーション。@email は TS・OpenAPI がどの message でも使う。
-var entityOnlyMarkers = []string{"@pk", "@unique", "@paging", "@required", "@timestamp", "@decimal", "@hidden"}
+var entityOnlyMarkers = []string{"@pk", "@unique", "@paging", "@required", "@decimal", "@hidden"}
 
 // checkEntityOnlyMarkers は entity ではない message（入れ子も）に entity 用のアノテーションが付いていればエラーにする。
 // 効かないので、付けた意図（例: @hidden で出さない）と違う出力になる。
 func checkEntityOnlyMarkers(msg *protogen.Message) error {
 	for _, f := range msg.Fields {
+		if err := checkTimestampMarker(string(msg.Desc.Name()), f); err != nil {
+			return err
+		}
 		comment := string(f.Comments.Leading)
 		for _, m := range entityOnlyMarkers {
 			if annotation.HasMarker(comment, m) || m == "@decimal" && strings.Contains(comment, "@decimal(") {
@@ -721,6 +747,14 @@ func checkEntityOnlyMarkers(msg *protogen.Message) error {
 		if err := checkEntityOnlyMarkers(nested); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// checkTimestampMarker は @timestamp が付いていればエラーにする。日時は型で表すので、注釈は効かない（int64 のままになる）。
+func checkTimestampMarker(msg string, f *protogen.Field) error {
+	if annotation.HasMarker(string(f.Comments.Leading), "@timestamp") {
+		return fmt.Errorf("message %s: field %q: @timestamp is not supported; remove it and declare date-time fields as google.protobuf.Timestamp", msg, f.Desc.Name())
 	}
 	return nil
 }

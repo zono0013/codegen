@@ -165,11 +165,12 @@ jobs:
               version: 0.1.0
           YAML
           mkdir -p server && (cd server && go mod init example.com/acme/server)
-          # サンプルと同じ proto に加えて、サンプルに無い形（整数の主キー、検査の無い entity、文字列以外の path / query パラメータ）も置く
+          # サンプルと同じ proto に加えて、サンプルに無い形（整数の主キー、検査の無い entity、文字列以外の path / query パラメータ、Input / Output の日時）も置く
           mkdir -p proto/tag/v1 && cp -R codegen/example/proto/. proto/
           cat > proto/tag/v1/tag.proto <<'PROTO'
           syntax = "proto3";
           package tag.v1;
+          import "google/protobuf/timestamp.proto";
           // @entity
           message Tag {
             // @pk
@@ -212,6 +213,8 @@ jobs:
             uint32 page = 2;
             uint64 offset = 3;
             bool archived = 4;
+            // query string から RFC 3339 として読む
+            google.protobuf.Timestamp since = 5;
           }
           message GetTagResponse { Tag tag = 1; }
           message DeleteBadgeRequest {
@@ -226,7 +229,33 @@ jobs:
             repeated Tag tags = 2;
             map<string, Tag> by_name = 3;
           }
+          // Input / Output の日時（body・repeated・map・入れ子）
+          message Window {
+            google.protobuf.Timestamp from = 1;
+            google.protobuf.Timestamp to = 2;
+          }
+          message TouchTagRequest {
+            int64 id = 1;
+            google.protobuf.Timestamp at = 2;
+            repeated google.protobuf.Timestamp history = 3;
+            map<string, google.protobuf.Timestamp> by_key = 4;
+            Window window = 5;
+          }
+          message GetTagAtRequest {
+            int64 id = 1;
+            google.protobuf.Timestamp at = 2;
+          }
+          message GetTagAtResponse { Window window = 1; }
+          message TouchTagResponse {
+            google.protobuf.Timestamp touched_at = 1;
+            Window window = 2;
+          }
           service TagService {
+            // @http POST /api/tags/{id}/touch
+            rpc TouchTag(TouchTagRequest) returns (TouchTagResponse);
+            // 日時の path パラメータ、Output だけが日時を使う（Handler は time を import しない）
+            // @http GET /api/tags/{id}/at/{at}
+            rpc GetTagAt(GetTagAtRequest) returns (GetTagAtResponse);
             // @http GET /api/tags/{id}
             rpc GetTag(GetTagRequest) returns (GetTagResponse);
             // @http DELETE /api/badges/{id}/{force}
