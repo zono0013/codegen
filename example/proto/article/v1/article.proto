@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package article.v1;
 
+import "google/protobuf/timestamp.proto";
+
 // Article は投稿された記事 1 件。
 //
 // マーカーの意味は codegen の docs/spec.md を参照:
@@ -10,7 +12,6 @@ package article.v1;
 //   @paging    cursor pagination の基準列。SelectByCursor を生成
 //   @unique    SelectBySlug のような単一検索を追加生成
 //   @required  ファクトリで trim + 非空バリデーション
-//   @timestamp int64(unix 秒) を time.Time にマップし、末尾の Unix を除去
 //
 // @entity
 message Article {
@@ -28,10 +29,8 @@ message Article {
   string author_id = 5;
   // 公開済みかどうか。作成直後は false（下書き）。
   bool published = 6;
-  // @timestamp
-  int64 created_at_unix = 7;
-  // @timestamp
-  int64 updated_at_unix = 8;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
 }
 
 message ListArticlesRequest {}

@@ -86,7 +86,7 @@ server/
 
 ## proto アノテーションと生成ルール
 
-アノテーション（`@entity` / `@pk` / `@unique` / `@paging` / `@required` / `@email` / `@timestamp` / `@decimal(p,s)` / `@http`）の意味、Response 形状（単一 entity → DTO、repeated → DTO 配列、それ以外 → `<Method>Output`、空 → 204）、path / query / body の振り分けは **`../../docs/spec.md` を必ず読むこと**（正本。ここには重複して書かない）。
+アノテーション（`@entity` / `@pk` / `@unique` / `@paging` / `@required` / `@email` / `@decimal(p,s)` / `@http`）と日時（`google.protobuf.Timestamp`）の意味、Response 形状（単一 entity → DTO、repeated → DTO 配列、それ以外 → `<Method>Output`、空 → 204）、path / query / body の振り分けは **`../../docs/spec.md` を必ず読むこと**（正本。ここには重複して書かない）。
 
 ## コーディング規約
 

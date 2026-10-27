@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package user.v1;
 
+import "google/protobuf/timestamp.proto";
+
 // User は記事の投稿者。
 //
 // @entity
@@ -12,8 +14,7 @@ message User {
   string email = 2;
   // @required
   string name = 3;
-  // @timestamp
-  int64 created_at_unix = 4;
+  google.protobuf.Timestamp created_at = 4;
 }
 
 message ListUsersRequest {}

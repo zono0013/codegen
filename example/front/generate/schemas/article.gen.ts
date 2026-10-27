@@ -8,8 +8,8 @@ export const ArticleSchema = z.object({
   body: z.string(),
   author_id: z.string(),
   published: z.boolean(),
-  created_at_unix: z.number(),
-  updated_at_unix: z.number(),
+  created_at: z.iso.datetime({ offset: true }),
+  updated_at: z.iso.datetime({ offset: true }),
 })
 export type Article = z.infer<typeof ArticleSchema>
 

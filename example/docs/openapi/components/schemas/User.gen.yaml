@@ -5,7 +5,7 @@ required:
   - id
   - email
   - name
-  - created_at_unix
+  - created_at
 properties:
   id:
     type: string
@@ -14,7 +14,6 @@ properties:
     format: email
   name:
     type: string
-  created_at_unix:
-    type: integer
-    format: int64
-    description: Unix 時刻（秒）
+  created_at:
+    type: string
+    format: date-time

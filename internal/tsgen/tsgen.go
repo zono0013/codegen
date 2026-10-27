@@ -87,12 +87,12 @@ func domainOf(protoPath string) string {
 
 func name(m *protogen.Message) string { return string(m.Desc.Name()) }
 
-// referencedMessage は f が指す message（map なら value 側）。scalar / enum なら nil。
+// referencedMessage は f が指す message（map なら value 側）。scalar / enum / Timestamp（日時の文字列）なら nil。
 func referencedMessage(f *protogen.Field) *protogen.Message {
 	if f.Desc.IsMap() {
 		f = f.Message.Fields[1]
 	}
-	if f.Desc.Kind() != protoreflect.MessageKind && f.Desc.Kind() != protoreflect.GroupKind {
+	if f.Desc.Kind() != protoreflect.MessageKind && f.Desc.Kind() != protoreflect.GroupKind || rest.IsTimestamp(f) {
 		return nil
 	}
 	return f.Message
@@ -121,6 +121,13 @@ func zodType(f *protogen.Field) string {
 		z = "z.string()" // JSON では base64 文字列
 	case protoreflect.EnumKind:
 		z = string(elem.Enum.Desc.Name()) + "Schema"
+	case protoreflect.MessageKind:
+		if rest.IsTimestamp(elem) {
+			// サーバーは time.Time を encoding/json で RFC 3339 にする（オフセットを持つことがある）
+			z = "z.iso.datetime({ offset: true })"
+			break
+		}
+		z = name(elem.Message) + "Schema"
 	default:
 		z = name(elem.Message) + "Schema"
 	}

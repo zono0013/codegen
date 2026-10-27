@@ -14,7 +14,7 @@ const mockUser: User = {
   id: '1',
   name: '田中 太郎',
   email: 'tanaka@example.com',
-  created_at_unix: 1700000000,
+  created_at: '2023-11-14T22:13:20Z',
 }
 
 function createWrapper() {

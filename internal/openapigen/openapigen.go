@@ -250,22 +250,11 @@ func (g *generator) messageSchema(m *protogen.Message) (string, error) {
 			continue
 		}
 		key := string(f.Desc.Name())
-		var s *yaml.Node
-		switch {
-		case isEntity && annotation.HasMarker(string(f.Comments.Leading), "@timestamp"):
-			key = rest.DTOFieldName(f)
-			s = withDescription(mapping("type", str("integer"), "format", str("int64")),
-				strings.TrimSpace(description(f)+"\nUnix 時刻（秒）"))
-		default:
-			if isEntity {
-				key = rest.DTOFieldName(f)
-			}
-			var err error
-			if s, err = g.fieldSchema(f, isEntity); err != nil {
-				return "", err
-			}
-			s = withDescription(s, description(f))
+		s, err := g.fieldSchema(f, isEntity)
+		if err != nil {
+			return "", err
 		}
+		s = withDescription(s, description(f))
 		add(props, key, s)
 		required = append(required, str(key))
 	}
@@ -332,6 +321,9 @@ func (g *generator) singleSchema(f *protogen.Field, inEntity bool) (*yaml.Node, 
 	case protoreflect.EnumKind:
 		return typed("integer", "int32"), nil // 生成 Go 型は int32 ベースで数値として出る
 	case protoreflect.MessageKind, protoreflect.GroupKind:
+		if rest.IsTimestamp(f) {
+			return typed("string", "date-time"), nil // encoding/json は time.Time を RFC 3339 で出す
+		}
 		name, err := g.messageSchema(f.Message)
 		if err != nil {
 			return nil, err

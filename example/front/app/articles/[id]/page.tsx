@@ -83,8 +83,8 @@ export default function ArticleDetailPage() {
           <CardTitle>本文</CardTitle>
           {article && (
             <CardDescription>
-              作成日: {new Date(article.created_at_unix * 1000).toLocaleDateString('ja-JP')} / 更新日:{' '}
-              {new Date(article.updated_at_unix * 1000).toLocaleDateString('ja-JP')}
+              作成日: {new Date(article.created_at).toLocaleDateString('ja-JP')} / 更新日:{' '}
+              {new Date(article.updated_at).toLocaleDateString('ja-JP')}
             </CardDescription>
           )}
         </CardHeader>

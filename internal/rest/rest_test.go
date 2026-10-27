@@ -192,23 +192,26 @@ func TestPartition(t *testing.T) {
 	}
 }
 
-func TestDTOFieldName(t *testing.T) {
+func TestIsTimestamp(t *testing.T) {
 	files := prototest.Files(t, map[string]string{"d/v1/d.proto": `syntax = "proto3";
 package d.v1;
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
 message M {
-  string author_id = 1;
-  string authorName = 2;
-  // @timestamp
-  int64 created_at_unix = 3;
+  google.protobuf.Timestamp created_at = 1;
+  repeated google.protobuf.Timestamp times = 2;
+  map<string, google.protobuf.Timestamp> by_name = 3;
+  google.protobuf.Duration ttl = 4;
+  int64 created_at_unix = 5;
 }
 `})
-	var got []string
+	var got []bool
 	for _, f := range files[0].Messages[0].Fields {
-		got = append(got, DTOFieldName(f))
+		got = append(got, IsTimestamp(f))
 	}
-	// proto のフィールド名をそのまま使う（TS と同じ）。entity では lower_snake_case でない名前は gogen がエラーにする
-	if want := []string{"author_id", "authorName", "created_at_unix"}; !slices.Equal(got, want) {
-		t.Errorf("DTOFieldName = %v, want %v", got, want)
+	// map は value 側で判断しない（map 自体は日時ではない）
+	if want := []bool{true, true, false, false, false}; !slices.Equal(got, want) {
+		t.Errorf("IsTimestamp = %v, want %v", got, want)
 	}
 }
 

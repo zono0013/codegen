@@ -116,14 +116,15 @@ User のような新ドメイン概念(例: `Order`)を追加する。
 
 1. `proto/order/v1/order.proto` を作成し、`// @entity` マーカー付きで定義。rpc には `// @http METHOD /path` を付ける
    ```proto
+   import "google/protobuf/timestamp.proto";
+
    // @entity
    message Order {
      // @pk @paging
      string id = 1;
      // @unique
      string order_number = 2;
-     // @timestamp
-     int64 created_at_unix = 3;
+     google.protobuf.Timestamp created_at = 3;
    }
 
    service OrderService {
@@ -150,7 +151,7 @@ User のような新ドメイン概念(例: `Order`)を追加する。
 
 #### proto アノテーション
 
-`@entity` / `@pk` / `@unique` / `@paging` / `@timestamp` / `@decimal(p,s)` / `@http METHOD /path` などの仕様は [`../../docs/spec.md`](../../docs/spec.md#proto-アノテーション) を参照。
+`@entity` / `@pk` / `@unique` / `@paging` / `@decimal(p,s)` / `@http METHOD /path` や日時（`google.protobuf.Timestamp`）の仕様は [`../../docs/spec.md`](../../docs/spec.md#proto-アノテーション) を参照。
 
 ### 既存エンティティにフィールドを追加したい
 

@@ -80,7 +80,7 @@ export function ArticleTable({
                   </Badge>
                 </TableCell>
                 <TableCell className="font-mono text-xs text-muted-foreground">
-                  {new Date(article.updated_at_unix * 1000).toLocaleDateString('ja-JP')}
+                  {new Date(article.updated_at).toLocaleDateString('ja-JP')}
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">

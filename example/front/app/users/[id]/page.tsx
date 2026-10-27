@@ -98,7 +98,7 @@ export default function UserDetailPage() {
           {user && (
             <CardDescription>
               登録日:{' '}
-              {new Date(user.created_at_unix * 1000).toLocaleDateString('ja-JP')}
+              {new Date(user.created_at).toLocaleDateString('ja-JP')}
             </CardDescription>
           )}
         </CardHeader>

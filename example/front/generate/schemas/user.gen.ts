@@ -5,7 +5,7 @@ export const UserSchema = z.object({
   id: z.string(),
   email: z.string().email(),
   name: z.string(),
-  created_at_unix: z.number(),
+  created_at: z.iso.datetime({ offset: true }),
 })
 export type User = z.infer<typeof UserSchema>
 
