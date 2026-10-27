@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -124,12 +125,17 @@ func TestRDBErrorWrapper_NotFoundKeepsSentinel(t *testing.T) {
 }
 
 // captureLog は f の間だけ slog.Default() の出力を取り出す。
+// slog.SetDefault は log パッケージの出力先とフラグも書き換えるので、それも戻す。
 func captureLog(t *testing.T, f func()) string {
 	t.Helper()
 	var buf bytes.Buffer
-	prev := slog.Default()
+	prev, prevWriter, prevFlags := slog.Default(), log.Writer(), log.Flags()
 	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
-	defer slog.SetDefault(prev)
+	defer func() {
+		slog.SetDefault(prev)
+		log.SetOutput(prevWriter)
+		log.SetFlags(prevFlags)
+	}()
 	f()
 	return buf.String()
 }
