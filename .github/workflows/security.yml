@@ -63,7 +63,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: zizmorcore/zizmor-action@53290badfa369cb0bf7ad16342cb62c2fa47ac7b # v0.8.0
+      - uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
         with:
           # zizmor 本体の版は action の版で決まる（action 内のハッシュ付きロックファイル）。action の更新に追従させる
           # 結果は Code scanning ではなく、PR の注釈とログに出す（security-events の書き込み権限を要らなくする）
